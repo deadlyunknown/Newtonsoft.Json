@@ -96,11 +96,13 @@ namespace Newtonsoft.Json.Tests
   {
     public static void IsInstanceOfType(Type t, object instance)
     {
-#if !NETFX_CORE
+#if (WINDOWS_PHONE || SILVERLIGHT)
       Assert.IsInstanceOfType(t, instance);
-#else
+#elif NETFX_CORE
       if (!instance.GetType().IsAssignableFrom(t))
-        throw new Exception("Blah");
+        throw new Exception("Not instance of type");
+#else
+      Assert.IsInstanceOf(t, instance);
 #endif
     }
 
@@ -129,7 +131,7 @@ namespace Newtonsoft.Json.Tests
       catch (TException ex)
       {
         if (message != null)
-          Assert.AreEqual(message, ex.Message, "Unexpected exception message." + Environment.NewLine + "Expected: " + message + Environment.NewLine + "Got: " + ex.Message);
+          Assert.AreEqual(message, ex.Message, "Unexpected exception message." + Environment.NewLine + "Expected: " + message + Environment.NewLine + "Got: " + ex.Message + Environment.NewLine + Environment.NewLine + ex);
       }
       catch (Exception ex)
       {

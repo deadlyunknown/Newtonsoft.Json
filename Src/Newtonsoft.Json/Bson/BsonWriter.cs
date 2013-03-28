@@ -27,6 +27,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+#if !(NET20 || NET35 || SILVERLIGHT || PORTABLE)
+using System.Numerics;
+#endif
 using System.Text;
 using Newtonsoft.Json.Utilities;
 using Newtonsoft.Json.Linq;
@@ -35,7 +38,7 @@ using System.Globalization;
 namespace Newtonsoft.Json.Bson
 {
   /// <summary>
-  /// Represents a writer that provides a fast, non-cached, forward-only way of generating Json data.
+  /// Represents a writer that provides a fast, non-cached, forward-only way of generating JSON data.
   /// </summary>
   public class BsonWriter : JsonWriter
   {
@@ -407,7 +410,7 @@ namespace Newtonsoft.Json.Bson
       AddValue(value, BsonType.Date);
     }
 
-#if !PocketPC && !NET20
+#if !NET20
     /// <summary>
     /// Writes a <see cref="DateTimeOffset"/> value.
     /// </summary>
@@ -459,6 +462,17 @@ namespace Newtonsoft.Json.Bson
       AddToken(new BsonString(value.ToString(), true));
     }
 
+#if !(NET20 || NET35 || SILVERLIGHT || PORTABLE)
+    /// <summary>
+    /// Writes a <see cref="BigInteger"/> value.
+    /// </summary>
+    /// <param name="value">The <see cref="BigInteger"/> value to write.</param>
+    public override void WriteValue(BigInteger value)
+    {
+      base.WriteValue(value);
+      AddToken(new BsonValue(value.ToByteArray(), BsonType.Binary));
+    }
+#endif
     #endregion
 
     /// <summary>

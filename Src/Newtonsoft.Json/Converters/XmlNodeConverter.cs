@@ -23,7 +23,7 @@
 // OTHER DEALINGS IN THE SOFTWARE.
 #endregion
 
-#if (!(SILVERLIGHT || PORTABLE) || WINDOWS_PHONE)
+#if (!(SILVERLIGHT) || WINDOWS_PHONE)
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -41,7 +41,7 @@ using System.Linq;
 namespace Newtonsoft.Json.Converters
 {
   #region XmlNodeWrappers
-#if !SILVERLIGHT && !NETFX_CORE
+#if !SILVERLIGHT && !NETFX_CORE && !PORTABLE
   internal class XmlDocumentWrapper : XmlNodeWrapper, IXmlDocument
   {
     private readonly XmlDocument _document;
@@ -807,7 +807,7 @@ namespace Newtonsoft.Json.Converters
       if (value is XObject)
         return XContainerWrapper.WrapNode((XObject)value);
 #endif
-#if !(SILVERLIGHT || NETFX_CORE)
+#if !(SILVERLIGHT || NETFX_CORE || PORTABLE)
       if (value is XmlNode)
         return new XmlNodeWrapper((XmlNode)value);
 #endif
@@ -972,15 +972,18 @@ namespace Newtonsoft.Json.Converters
           }
           else
           {
+            manager.PushScope();
+
             foreach (IXmlNode attribute in node.Attributes)
             {
               if (attribute.NamespaceUri == "http://www.w3.org/2000/xmlns/")
               {
-                string prefix = (attribute.LocalName != "xmlns")
-                                  ? attribute.LocalName
-                                  : string.Empty;
+                string namespacePrefix = (attribute.LocalName != "xmlns")
+                                    ? attribute.LocalName
+                                    : string.Empty;
+                string namespaceUri = attribute.Value;
 
-                manager.AddNamespace(prefix, attribute.Value);
+                manager.AddNamespace(namespacePrefix, namespaceUri);
               }
             }
 
@@ -1011,6 +1014,8 @@ namespace Newtonsoft.Json.Converters
 
               writer.WriteEndObject();
             }
+
+            manager.PopScope();
           }
 
           break;
@@ -1077,6 +1082,9 @@ namespace Newtonsoft.Json.Converters
     /// <returns>The object value.</returns>
     public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
     {
+      if (reader.TokenType == JsonToken.Null)
+        return null;
+
       XmlNamespaceManager manager = new XmlNamespaceManager(new NameTable());
       IXmlDocument document = null;
       IXmlNode rootNode = null;
@@ -1092,7 +1100,7 @@ namespace Newtonsoft.Json.Converters
         rootNode = document;
       }
 #endif
-#if !(SILVERLIGHT || NETFX_CORE)
+#if !(SILVERLIGHT || NETFX_CORE || PORTABLE)
       if (typeof(XmlNode).IsAssignableFrom(objectType))
       {
         if (objectType != typeof (XmlDocument))
@@ -1262,7 +1270,7 @@ namespace Newtonsoft.Json.Converters
       else if (reader.TokenType == JsonToken.Date)
       {
         DateTime d = Convert.ToDateTime(reader.Value, CultureInfo.InvariantCulture);
-#if !NETFX_CORE
+#if !(NETFX_CORE || PORTABLE)
         return XmlConvert.ToString(d, DateTimeUtils.ToSerializationMode(d.Kind));
 #else
         return XmlConvert.ToString(d);
@@ -1555,7 +1563,7 @@ namespace Newtonsoft.Json.Converters
       if (typeof(XObject).IsAssignableFrom(valueType))
         return true;
 #endif
-#if !(SILVERLIGHT || NETFX_CORE)
+#if !(SILVERLIGHT || NETFX_CORE || PORTABLE)
       if (typeof(XmlNode).IsAssignableFrom(valueType))
         return true;
 #endif

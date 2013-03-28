@@ -104,8 +104,12 @@ namespace Newtonsoft.Json.Utilities
 
       if (typeof(IDictionary).IsAssignableFrom(type))
         return true;
-      if (ReflectionUtils.ImplementsGenericDefinition(type, typeof (IDictionary<,>)))
+      if (ReflectionUtils.ImplementsGenericDefinition(type, typeof(IDictionary<,>)))
         return true;
+#if !(NET40 || NET35 || NET20 || SILVERLIGHT || WINDOWS_PHONE || PORTABLE)
+      if (ReflectionUtils.ImplementsGenericDefinition(type, typeof(IReadOnlyDictionary<,>)))
+        return true;
+#endif
 
       return false;
     }
@@ -225,6 +229,32 @@ namespace Newtonsoft.Json.Utilities
           list = CreateCollectionWrapper(Activator.CreateInstance(listType));
         else
           list = null;
+      }
+      else if (ReflectionUtils.ImplementsGenericDefinition(listType, typeof (IEnumerable<>), out collectionType))
+      {
+        bool suitableConstructor = false;
+
+        foreach (ConstructorInfo constructor in listType.GetConstructors())
+        {
+          IList<ParameterInfo> parameters = constructor.GetParameters();
+
+          if (parameters.Count == 1)
+          {
+            if (collectionType.IsAssignableFrom(parameters[0].ParameterType))
+            {
+              suitableConstructor = true;
+              break;
+            }
+          }
+        }
+
+        if (!suitableConstructor)
+          throw new Exception("{0} does not have a public constructor that takes a type that implements {1}.".FormatWith(CultureInfo.InvariantCulture, listType, collectionType));
+
+        Type collectionContentsType = collectionType.GetGenericArguments()[0];
+
+        list = CreateGenericList(collectionContentsType);
+        isReadOnlyOrFixedSize = true;
       }
       else
       {

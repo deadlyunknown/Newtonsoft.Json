@@ -26,6 +26,9 @@
 using System;
 using System.Globalization;
 using System.ComponentModel;
+#if !(NET20 || NET35 || SILVERLIGHT || PORTABLE)
+using System.Numerics;
+#endif
 using Newtonsoft.Json.Serialization;
 using System.Reflection;
 #if NET20
@@ -222,6 +225,15 @@ namespace Newtonsoft.Json.Utilities
 #endif
     }
 
+    public static TimeSpan ParseTimeSpan(string input)
+    {
+#if !(NET35 || NET20)
+      return TimeSpan.Parse((string) input, CultureInfo.InvariantCulture);
+#else
+      return TimeSpan.Parse((string)input);
+#endif
+    }
+
     internal struct TypeConvertKey : IEquatable<TypeConvertKey>
     {
       private readonly Type _initialType;
@@ -279,6 +291,50 @@ namespace Newtonsoft.Json.Utilities
       return o => call(null, o);
     }
 
+#if !(NET20 || NET35 || SILVERLIGHT || PORTABLE)
+    internal static BigInteger ToBigInteger(object value)
+    {
+      if (value is BigInteger)
+        return (BigInteger)value;
+      if (value is string)
+        return BigInteger.Parse((string)value, CultureInfo.InvariantCulture);
+      if (value is float)
+        return new BigInteger((float)value);
+      if (value is double)
+        return new BigInteger((double)value);
+      if (value is decimal)
+        return new BigInteger((decimal)value);
+      if (value is int)
+        return new BigInteger((int)value);
+      if (value is long)
+        return new BigInteger((long)value);
+      if (value is uint)
+        return new BigInteger((uint)value);
+      if (value is ulong)
+        return new BigInteger((ulong)value);
+      if (value is byte[])
+        return new BigInteger((byte[])value);
+
+      throw new InvalidCastException("Cannot convert {0} to BigInteger.".FormatWith(CultureInfo.InvariantCulture, value.GetType()));
+    }
+
+    public static object FromBigInteger(BigInteger i, Type targetType)
+    {
+      if (targetType == typeof (decimal))
+        return (decimal) i;
+      if (targetType == typeof (double))
+        return (double) i;
+      if (targetType == typeof (float))
+        return (float) i;
+      if (targetType == typeof (ulong))
+        return (ulong) i;
+      if (IsConvertible(targetType))
+        return System.Convert.ChangeType((long) i, targetType, CultureInfo.InvariantCulture);
+
+      throw new InvalidOperationException("Can not convert from BigInteger to {0}.".FormatWith(CultureInfo.InvariantCulture, targetType));
+    }
+#endif
+
     #region Convert
     /// <summary>
     /// Converts the value to the specified type.
@@ -320,7 +376,7 @@ namespace Newtonsoft.Json.Utilities
       if (targetType.IsInterface() || targetType.IsGenericTypeDefinition() || targetType.IsAbstract())
         throw new ArgumentException("Target type {0} is not a value type or a non-abstract class.".FormatWith(CultureInfo.InvariantCulture, targetType), "targetType");
 
-#if !PocketPC && !NET20
+#if !NET20
       if (initialValue is DateTime && targetType == typeof(DateTimeOffset))
         return new DateTimeOffset((DateTime)initialValue);
 #endif
@@ -331,13 +387,16 @@ namespace Newtonsoft.Json.Utilities
           return new Guid((string) initialValue);
         if (targetType == typeof (Uri))
           return new Uri((string) initialValue, UriKind.RelativeOrAbsolute);
-        if (targetType == typeof (TimeSpan))
-#if !(NET35 || NET20 || SILVERLIGHT || PORTABLE)
-          return TimeSpan.Parse((string) initialValue, CultureInfo.InvariantCulture);
-#else
-          return TimeSpan.Parse((string)initialValue);
-#endif
+        if (targetType == typeof(TimeSpan))
+          return ParseTimeSpan((string) initialValue);
       }
+
+#if !(NET20 || NET35 || SILVERLIGHT || PORTABLE)
+      if (targetType == typeof(BigInteger))
+        return ToBigInteger(initialValue);
+      if (initialValue is BigInteger)
+        return FromBigInteger((BigInteger)initialValue, targetType);
+#endif
 
 #if !(NETFX_CORE || PORTABLE)
       // see if source or target types have a TypeConverter that converts between the two
@@ -380,6 +439,7 @@ namespace Newtonsoft.Json.Utilities
 
       throw new InvalidOperationException("Can not convert from {0} to {1}.".FormatWith(CultureInfo.InvariantCulture, initialType, targetType));
     }
+
     #endregion
 
     #region TryConvert
@@ -395,7 +455,16 @@ namespace Newtonsoft.Json.Utilities
     /// </returns>
     public static bool TryConvert(object initialValue, CultureInfo culture, Type targetType, out object convertedValue)
     {
-      return MiscellaneousUtils.TryAction<object>(delegate { return Convert(initialValue, culture, targetType); }, out convertedValue);
+      try
+      {
+        convertedValue = Convert(initialValue, culture, targetType);
+        return true;
+      }
+      catch
+      {
+        convertedValue = null;
+        return false;
+      }
     }
     #endregion
 

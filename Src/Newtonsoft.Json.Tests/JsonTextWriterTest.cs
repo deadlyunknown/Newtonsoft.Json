@@ -133,7 +133,7 @@ namespace Newtonsoft.Json.Tests
         jsonWriter.WriteValue((decimal?)1.1m);
         jsonWriter.WriteValue((DateTime?)null);
         jsonWriter.WriteValue((DateTime?)new DateTime(JsonConvert.InitialJavaScriptDateTicks, DateTimeKind.Utc));
-#if !PocketPC && !NET20
+#if !NET20
         jsonWriter.WriteValue((DateTimeOffset?)null);
         jsonWriter.WriteValue((DateTimeOffset?)new DateTimeOffset(JsonConvert.InitialJavaScriptDateTicks, TimeSpan.Zero));
 #endif
@@ -143,7 +143,7 @@ namespace Newtonsoft.Json.Tests
       string json = sw.ToString();
       string expected;
 
-#if !PocketPC && !NET20
+#if !NET20
       expected = @"[null,""c"",null,true,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1.1,null,1.1,null,1.1,null,""1970-01-01T00:00:00Z"",null,""1970-01-01T00:00:00+00:00""]";
 #else
       expected = @"[null,""c"",null,true,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1.1,null,1.1,null,1.1,null,""1970-01-01T00:00:00Z""]";
@@ -389,7 +389,7 @@ namespace Newtonsoft.Json.Tests
     }
 
     [Test]
-    public void FloatingPointNonFiniteNumbers()
+    public void FloatingPointNonFiniteNumbers_Symbol()
     {
       StringBuilder sb = new StringBuilder();
       StringWriter sw = new StringWriter(sb);
@@ -397,6 +397,7 @@ namespace Newtonsoft.Json.Tests
       using (JsonWriter jsonWriter = new JsonTextWriter(sw))
       {
         jsonWriter.Formatting = Formatting.Indented;
+        jsonWriter.FloatFormatHandling = FloatFormatHandling.Symbol;
 
         jsonWriter.WriteStartArray();
         jsonWriter.WriteValue(double.NaN);
@@ -424,6 +425,127 @@ namespace Newtonsoft.Json.Tests
     }
 
     [Test]
+    public void FloatingPointNonFiniteNumbers_Zero()
+    {
+      StringBuilder sb = new StringBuilder();
+      StringWriter sw = new StringWriter(sb);
+
+      using (JsonWriter jsonWriter = new JsonTextWriter(sw))
+      {
+        jsonWriter.Formatting = Formatting.Indented;
+        jsonWriter.FloatFormatHandling = FloatFormatHandling.DefaultValue;
+
+        jsonWriter.WriteStartArray();
+        jsonWriter.WriteValue(double.NaN);
+        jsonWriter.WriteValue(double.PositiveInfinity);
+        jsonWriter.WriteValue(double.NegativeInfinity);
+        jsonWriter.WriteValue(float.NaN);
+        jsonWriter.WriteValue(float.PositiveInfinity);
+        jsonWriter.WriteValue(float.NegativeInfinity);
+        jsonWriter.WriteValue((double?)double.NaN);
+        jsonWriter.WriteValue((double?)double.PositiveInfinity);
+        jsonWriter.WriteValue((double?)double.NegativeInfinity);
+        jsonWriter.WriteValue((float?)float.NaN);
+        jsonWriter.WriteValue((float?)float.PositiveInfinity);
+        jsonWriter.WriteValue((float?)float.NegativeInfinity);
+        jsonWriter.WriteEndArray();
+
+        jsonWriter.Flush();
+      }
+
+      string expected = @"[
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null
+]";
+      string result = sb.ToString();
+
+      Assert.AreEqual(expected, result);
+    }
+
+    [Test]
+    public void FloatingPointNonFiniteNumbers_String()
+    {
+      StringBuilder sb = new StringBuilder();
+      StringWriter sw = new StringWriter(sb);
+
+      using (JsonWriter jsonWriter = new JsonTextWriter(sw))
+      {
+        jsonWriter.Formatting = Formatting.Indented;
+        jsonWriter.FloatFormatHandling = FloatFormatHandling.String;
+
+        jsonWriter.WriteStartArray();
+        jsonWriter.WriteValue(double.NaN);
+        jsonWriter.WriteValue(double.PositiveInfinity);
+        jsonWriter.WriteValue(double.NegativeInfinity);
+        jsonWriter.WriteValue(float.NaN);
+        jsonWriter.WriteValue(float.PositiveInfinity);
+        jsonWriter.WriteValue(float.NegativeInfinity);
+        jsonWriter.WriteEndArray();
+
+        jsonWriter.Flush();
+      }
+
+      string expected = @"[
+  ""NaN"",
+  ""Infinity"",
+  ""-Infinity"",
+  ""NaN"",
+  ""Infinity"",
+  ""-Infinity""
+]";
+      string result = sb.ToString();
+
+      Assert.AreEqual(expected, result);
+    }
+
+    [Test]
+    public void FloatingPointNonFiniteNumbers_QuoteChar()
+    {
+      StringBuilder sb = new StringBuilder();
+      StringWriter sw = new StringWriter(sb);
+
+      using (JsonTextWriter jsonWriter = new JsonTextWriter(sw))
+      {
+        jsonWriter.Formatting = Formatting.Indented;
+        jsonWriter.FloatFormatHandling = FloatFormatHandling.String;
+        jsonWriter.QuoteChar = '\'';
+
+        jsonWriter.WriteStartArray();
+        jsonWriter.WriteValue(double.NaN);
+        jsonWriter.WriteValue(double.PositiveInfinity);
+        jsonWriter.WriteValue(double.NegativeInfinity);
+        jsonWriter.WriteValue(float.NaN);
+        jsonWriter.WriteValue(float.PositiveInfinity);
+        jsonWriter.WriteValue(float.NegativeInfinity);
+        jsonWriter.WriteEndArray();
+
+        jsonWriter.Flush();
+      }
+
+      string expected = @"[
+  'NaN',
+  'Infinity',
+  '-Infinity',
+  'NaN',
+  'Infinity',
+  '-Infinity'
+]";
+      string result = sb.ToString();
+
+      Assert.AreEqual(expected, result);
+    }
+
+    [Test]
     public void WriteRawInStart()
     {
       StringBuilder sb = new StringBuilder();
@@ -432,6 +554,7 @@ namespace Newtonsoft.Json.Tests
       using (JsonWriter jsonWriter = new JsonTextWriter(sw))
       {
         jsonWriter.Formatting = Formatting.Indented;
+        jsonWriter.FloatFormatHandling = FloatFormatHandling.Symbol;
 
         jsonWriter.WriteRaw("[1,2,3,4,5]");
         jsonWriter.WriteWhitespace("  ");
@@ -457,6 +580,7 @@ namespace Newtonsoft.Json.Tests
       using (JsonWriter jsonWriter = new JsonTextWriter(sw))
       {
         jsonWriter.Formatting = Formatting.Indented;
+        jsonWriter.FloatFormatHandling = FloatFormatHandling.Symbol;
 
         jsonWriter.WriteStartArray();
         jsonWriter.WriteValue(double.NaN);
@@ -569,6 +693,8 @@ namespace Newtonsoft.Json.Tests
 
       using (JsonWriter jsonWriter = new JsonTextWriter(sw))
       {
+        jsonWriter.FloatFormatHandling = FloatFormatHandling.Symbol;
+        
         jsonWriter.WriteStartArray();
 
         jsonWriter.WriteValue(0.0);
@@ -642,6 +768,8 @@ namespace Newtonsoft.Json.Tests
       using (JsonTextWriter jsonWriter = new JsonTextWriter(sw))
       {
         jsonWriter.Formatting = Formatting.Indented;
+        jsonWriter.FloatFormatHandling = FloatFormatHandling.Symbol;
+
         Assert.AreEqual(Formatting.Indented, jsonWriter.Formatting);
 
         jsonWriter.Indentation = 5;
@@ -713,6 +841,7 @@ _____'propertyName': NaN
         jsonWriter.WriteValue(data);
         jsonWriter.WriteValue((object)data);
         jsonWriter.WriteValue((byte[])null);
+        jsonWriter.WriteValue((Uri)null);
         jsonWriter.WriteEndArray();
       }
 
@@ -720,6 +849,7 @@ _____'propertyName': NaN
   ""SGVsbG8gd29ybGQu"",
   ""SGVsbG8gd29ybGQu"",
   ""SGVsbG8gd29ybGQu"",
+  null,
   null
 ]";
       string result = sb.ToString();
@@ -840,6 +970,69 @@ _____'propertyName': NaN
     }
 
     [Test]
+    public void HtmlStringEscapeHandling()
+    {
+      StringWriter sw = new StringWriter();
+      JsonTextWriter writer = new JsonTextWriter(sw)
+      {
+        StringEscapeHandling = StringEscapeHandling.EscapeHtml
+      };
+
+      string script = @"<script type=""text/javascript"">alert('hi');</script>";
+
+      writer.WriteValue(script);
+
+      string json = sw.ToString();
+
+      Assert.AreEqual(@"""\u003cscript type=\u0022text/javascript\u0022\u003ealert(\u0027hi\u0027);\u003c/script\u003e""", json);
+
+      JsonTextReader reader = new JsonTextReader(new StringReader(json));
+      
+      Assert.AreEqual(script, reader.ReadAsString());
+
+      //Console.WriteLine(HttpUtility.HtmlEncode(script));
+
+      //System.Web.Script.Serialization.JavaScriptSerializer s = new System.Web.Script.Serialization.JavaScriptSerializer();
+      //Console.WriteLine(s.Serialize(new { html = script }));
+    }
+
+    [Test]
+    public void NonAsciiStringEscapeHandling()
+    {
+      StringWriter sw = new StringWriter();
+      JsonTextWriter writer = new JsonTextWriter(sw)
+      {
+        StringEscapeHandling = StringEscapeHandling.EscapeNonAscii
+      };
+
+      string unicode = "\u5f20";
+
+      writer.WriteValue(unicode);
+
+      string json = sw.ToString();
+
+      Assert.AreEqual(8, json.Length);
+      Assert.AreEqual(@"""\u5f20""", json);
+
+      JsonTextReader reader = new JsonTextReader(new StringReader(json));
+
+      Assert.AreEqual(unicode, reader.ReadAsString());
+
+      sw = new StringWriter();
+      writer = new JsonTextWriter(sw)
+      {
+        StringEscapeHandling = StringEscapeHandling.Default
+      };
+
+      writer.WriteValue(unicode);
+
+      json = sw.ToString();
+
+      Assert.AreEqual(3, json.Length);
+      Assert.AreEqual("\"\u5f20\"", json);
+    }
+
+    [Test]
     public void WriteEndOnProperty()
     {
       StringWriter sw = new StringWriter();
@@ -852,5 +1045,222 @@ _____'propertyName': NaN
 
       Assert.AreEqual("{'Blah':null}", sw.ToString());
     }
+
+#if !NET20
+    [Test]
+    public void QuoteChar()
+    {
+      StringWriter sw = new StringWriter();
+      JsonTextWriter writer = new JsonTextWriter(sw);
+      writer.Formatting = Formatting.Indented;
+      writer.QuoteChar = '\'';
+
+      writer.WriteStartArray();
+
+      writer.WriteValue(new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc));
+      writer.WriteValue(new DateTimeOffset(2000, 1, 1, 1, 1, 1, TimeSpan.Zero));
+
+      writer.DateFormatHandling = DateFormatHandling.MicrosoftDateFormat;
+      writer.WriteValue(new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc));
+      writer.WriteValue(new DateTimeOffset(2000, 1, 1, 1, 1, 1, TimeSpan.Zero));
+
+      writer.DateFormatString = "yyyy gg";
+      writer.WriteValue(new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc));
+      writer.WriteValue(new DateTimeOffset(2000, 1, 1, 1, 1, 1, TimeSpan.Zero));
+
+      writer.WriteValue(new byte[] { 1, 2, 3 });
+      writer.WriteValue(TimeSpan.Zero);
+      writer.WriteValue(new Uri("http://www.google.com/"));
+      writer.WriteValue(Guid.Empty);
+
+      writer.WriteEnd();
+
+      Assert.AreEqual(@"[
+  '2000-01-01T01:01:01Z',
+  '2000-01-01T01:01:01+00:00',
+  '\/Date(946688461000)\/',
+  '\/Date(946688461000+0000)\/',
+  '2000 A.D.',
+  '2000 A.D.',
+  'AQID',
+  '00:00:00',
+  'http://www.google.com/',
+  '00000000-0000-0000-0000-000000000000'
+]", sw.ToString());
+    }
+
+    [Test]
+    public void Culture()
+    {
+      StringWriter sw = new StringWriter();
+      JsonTextWriter writer = new JsonTextWriter(sw);
+      writer.Formatting = Formatting.Indented;
+      writer.DateFormatString = "yyyy tt";
+      writer.Culture = new CultureInfo("en-NZ");
+      writer.QuoteChar = '\'';
+
+      writer.WriteStartArray();
+
+      writer.WriteValue(new DateTime(2000, 1, 1, 1, 1, 1, DateTimeKind.Utc));
+      writer.WriteValue(new DateTimeOffset(2000, 1, 1, 1, 1, 1, TimeSpan.Zero));
+
+      writer.WriteEnd();
+
+      Assert.AreEqual(@"[
+  '2000 a.m.',
+  '2000 a.m.'
+]", sw.ToString());
+    }
+#endif
+
+    [Test]
+    public void CompareNewStringEscapingWithOld()
+    {
+      Console.WriteLine("Started");
+
+      char c = (char) 0;
+
+      do
+      {
+        if (c % 1000 == 0)
+          Console.WriteLine("Position: " + (int)c);
+
+        StringWriter swNew = new StringWriter();
+        JavaScriptUtils.WriteEscapedJavaScriptString(swNew, c.ToString(), '"', true, JavaScriptUtils.DoubleQuoteCharEscapeFlags, StringEscapeHandling.Default);
+
+        StringWriter swOld = new StringWriter();
+        WriteEscapedJavaScriptStringOld(swOld, c.ToString(), '"', true);
+
+        string newText = swNew.ToString();
+        string oldText = swOld.ToString();
+
+        if (newText != oldText)
+          throw new Exception("Difference for char '{0}' (value {1}). Old text: {2}, New text: {3}".FormatWith(CultureInfo.InvariantCulture, c, (int) c, oldText, newText));
+
+        c++;
+      } while (c != char.MaxValue);
+
+      Console.WriteLine("Finished");
+    }
+
+    private const string EscapedUnicodeText = "!";
+
+    private static void WriteEscapedJavaScriptStringOld(TextWriter writer, string s, char delimiter, bool appendDelimiters)
+    {
+      // leading delimiter
+      if (appendDelimiters)
+        writer.Write(delimiter);
+
+      if (s != null)
+      {
+        char[] chars = null;
+        char[] unicodeBuffer = null;
+        int lastWritePosition = 0;
+
+        for (int i = 0; i < s.Length; i++)
+        {
+          var c = s[i];
+
+          // don't escape standard text/numbers except '\' and the text delimiter
+          if (c >= ' ' && c < 128 && c != '\\' && c != delimiter)
+            continue;
+
+          string escapedValue;
+
+          switch (c)
+          {
+            case '\t':
+              escapedValue = @"\t";
+              break;
+            case '\n':
+              escapedValue = @"\n";
+              break;
+            case '\r':
+              escapedValue = @"\r";
+              break;
+            case '\f':
+              escapedValue = @"\f";
+              break;
+            case '\b':
+              escapedValue = @"\b";
+              break;
+            case '\\':
+              escapedValue = @"\\";
+              break;
+            case '\u0085': // Next Line
+              escapedValue = @"\u0085";
+              break;
+            case '\u2028': // Line Separator
+              escapedValue = @"\u2028";
+              break;
+            case '\u2029': // Paragraph Separator
+              escapedValue = @"\u2029";
+              break;
+            case '\'':
+              // this charater is being used as the delimiter
+              escapedValue = @"\'";
+              break;
+            case '"':
+              // this charater is being used as the delimiter
+              escapedValue = "\\\"";
+              break;
+            default:
+              if (c <= '\u001f')
+              {
+                if (unicodeBuffer == null)
+                  unicodeBuffer = new char[6];
+
+                StringUtils.ToCharAsUnicode(c, unicodeBuffer);
+
+                // slightly hacky but it saves multiple conditions in if test
+                escapedValue = EscapedUnicodeText;
+              }
+              else
+              {
+                escapedValue = null;
+              }
+              break;
+          }
+
+          if (escapedValue == null)
+            continue;
+
+          if (i > lastWritePosition)
+          {
+            if (chars == null)
+              chars = s.ToCharArray();
+
+            // write unchanged chars before writing escaped text
+            writer.Write(chars, lastWritePosition, i - lastWritePosition);
+          }
+
+          lastWritePosition = i + 1;
+          if (!string.Equals(escapedValue, EscapedUnicodeText))
+            writer.Write(escapedValue);
+          else
+            writer.Write(unicodeBuffer);
+        }
+
+        if (lastWritePosition == 0)
+        {
+          // no escaped text, write entire string
+          writer.Write(s);
+        }
+        else
+        {
+          if (chars == null)
+            chars = s.ToCharArray();
+
+          // write remaining text
+          writer.Write(chars, lastWritePosition, s.Length - lastWritePosition);
+        }
+      }
+
+      // trailing delimiter
+      if (appendDelimiters)
+        writer.Write(delimiter);
+    }
+
+
   }
 }

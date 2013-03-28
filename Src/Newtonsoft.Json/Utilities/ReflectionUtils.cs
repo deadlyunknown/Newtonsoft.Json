@@ -709,7 +709,7 @@ namespace Newtonsoft.Json.Utilities
     {
       T[] attributes = GetAttributes<T>(attributeProvider, inherit);
 
-      return attributes.SingleOrDefault();
+      return (attributes != null) ? attributes.SingleOrDefault() : null;
     }
 
 #if !(NETFX_CORE)
@@ -809,39 +809,7 @@ namespace Newtonsoft.Json.Utilities
      {
        ValidationUtils.ArgumentNotNull(type, "type");
 
-#if !PocketPC
        return Activator.CreateInstance(type, args);
-#else
-       // CF doesn't have a Activator.CreateInstance overload that takes args
-       // lame
-
-       if (type.IsValueType && CollectionUtils.IsNullOrEmpty<object>(args))
-         return Activator.CreateInstance(type);
-
-       ConstructorInfo[] constructors = type.GetConstructors();
-       ConstructorInfo match = constructors.Where(c =>
-         {
-           ParameterInfo[] parameters = c.GetParameters();
-           if (parameters.Length != args.Length)
-             return false;
-
-           for (int i = 0; i < parameters.Length; i++)
-           {
-             ParameterInfo parameter = parameters[i];
-             object value = args[i];
-
-             if (!IsCompatibleValue(value, parameter.ParameterType))
-               return false;
-           }
-
-           return true;
-         }).FirstOrDefault();
-
-       if (match == null)
-         throw new Exception("Could not create '{0}' with given parameters.".FormatWith(CultureInfo.InvariantCulture, type));
-
-       return match.Invoke(args);
-#endif
      }
 
     public static void SplitFullyQualifiedTypeName(string fullyQualifiedTypeName, out string typeName, out string assemblyName)
@@ -1049,8 +1017,10 @@ namespace Newtonsoft.Json.Utilities
       if (type == typeof(Guid))
         return new Guid();
 
+#if !NET20
       if (type == typeof(DateTimeOffset))
         return new DateTimeOffset();
+#endif
 
       if (IsNullable(type))
         return null;

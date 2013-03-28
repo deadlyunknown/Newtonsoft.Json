@@ -26,11 +26,9 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-#if !PORTABLE
 using System.Collections.Specialized;
-#endif
 using System.ComponentModel;
-#if !(NET35 || NET20 || WINDOWS_PHONE || PORTABLE)
+#if !(NET35 || NET20)
 using System.Dynamic;
 using System.Linq.Expressions;
 #endif
@@ -162,7 +160,7 @@ namespace Newtonsoft.Json.Linq
       if (_listChanged != null)
         OnListChanged(new ListChangedEventArgs(ListChangedType.ItemChanged, IndexOfItem(childProperty)));
 #endif
-#if SILVERLIGHT || !(NET20 || NET35 || PORTABLE)
+#if SILVERLIGHT || !(NET20 || NET35)
       if (_collectionChanged != null)
         OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, childProperty, childProperty, IndexOfItem(childProperty)));
 #endif
@@ -381,7 +379,8 @@ namespace Newtonsoft.Json.Linq
     /// <summary>
     /// Gets the <see cref="Newtonsoft.Json.Linq.JToken"/> with the specified property name.
     /// </summary>
-    /// <value>The <see cref="Newtonsoft.Json.Linq.JToken"/> with the specified property name.</value>
+    /// <param name="propertyName">Name of the property.</param>
+    /// <returns>The <see cref="Newtonsoft.Json.Linq.JToken"/> with the specified property name.</returns>
     public JToken GetValue(string propertyName)
     {
       return GetValue(propertyName, StringComparison.Ordinal);
@@ -392,7 +391,9 @@ namespace Newtonsoft.Json.Linq
     /// The exact property name will be searched for first and if no matching property is found then
     /// the <see cref="StringComparison"/> will be used to match a property.
     /// </summary>
-    /// <value>The <see cref="Newtonsoft.Json.Linq.JToken"/> with the specified property name.</value>
+    /// <param name="propertyName">Name of the property.</param>
+    /// <param name="comparison">One of the enumeration values that specifies how the strings will be compared.</param>
+    /// <returns>The <see cref="Newtonsoft.Json.Linq.JToken"/> with the specified property name.</returns>
     public JToken GetValue(string propertyName, StringComparison comparison)
     {
       if (propertyName == null)
@@ -754,7 +755,7 @@ namespace Newtonsoft.Json.Linq
     #endregion
 #endif
 
-#if !(NET35 || NET20 || WINDOWS_PHONE || PORTABLE)
+#if !(NET35 || NET20)
     /// <summary>
     /// Returns the <see cref="T:System.Dynamic.DynamicMetaObject"/> responsible for binding operations performed on this object.
     /// </summary>

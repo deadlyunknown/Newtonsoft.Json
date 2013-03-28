@@ -65,7 +65,8 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <DocumentationFile>bin\Release\Net20\Newtonsoft.Json.xml</DocumentationFile>
-    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRuleSet>Newtonsoft.Json.ruleset</CodeAnalysisRuleSet>
+    <RunCodeAnalysis>true</RunCodeAnalysis>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -95,6 +96,8 @@
     <Compile Include="DateFormatHandling.cs" />
     <Compile Include="DateParseHandling.cs" />
     <Compile Include="DateTimeZoneHandling.cs" />
+    <Compile Include="FloatFormatHandling.cs" />
+    <Compile Include="FloatParseHandling.cs" />
     <Compile Include="FormatterAssemblyStyle.cs" />
     <Compile Include="Formatting.cs" />
     <Compile Include="JsonConstructorAttribute.cs" />
@@ -103,8 +106,13 @@
     <Compile Include="JsonPosition.cs" />
     <Compile Include="Linq\JPropertyKeyedCollection.cs" />
     <Compile Include="SerializationBinder.cs" />
+    <Compile Include="Serialization\DiagnosticsTraceWriter.cs" />
+    <Compile Include="Serialization\ITraceWriter.cs" />
     <Compile Include="Serialization\JsonContainerContract.cs" />
+    <Compile Include="Serialization\JsonDynamicContract.cs" />
+    <Compile Include="Serialization\MemoryTraceWriter.cs" />
     <Compile Include="StreamingContext.cs" />
+    <Compile Include="StringEscapeHandling.cs" />
     <Compile Include="Utilities\LinqBridge.cs" />
     <Compile Include="Linq\JPath.cs" />
     <Compile Include="Linq\JPropertyDescriptor.cs" />

@@ -24,6 +24,7 @@
 #endregion
 
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.Serialization;
 using Newtonsoft.Json.Utilities;
@@ -41,7 +42,7 @@ namespace Newtonsoft.Json.Serialization
     Primitive,
     String,
     Dictionary,
-#if !(NET35 || NET20 || WINDOWS_PHONE || PORTABLE)
+#if !(NET35 || NET20)
     Dynamic,
 #endif
 #if !(SILVERLIGHT || NETFX_CORE || PORTABLE)
@@ -49,6 +50,21 @@ namespace Newtonsoft.Json.Serialization
 #endif
     Linq
   }
+
+  /// <summary>
+  /// Handles <see cref="JsonSerializer"/> serialization callback events.
+  /// </summary>
+  /// <param name="o">The object that raised the callback event.</param>
+  /// <param name="context">The streaming context.</param>
+  public delegate void SerializationCallback(object o, StreamingContext context);
+
+  /// <summary>
+  /// Handles <see cref="JsonSerializer"/> serialization error callback events.
+  /// </summary>
+  /// <param name="o">The object that raised the callback event.</param>
+  /// <param name="context">The streaming context.</param>
+  /// <param name="errorContext">The error context.</param>
+  public delegate void SerializationErrorCallback(object o, StreamingContext context, ErrorContext errorContext);
 
   /// <summary>
   /// Contract details for a <see cref="Type"/> used by the <see cref="JsonSerializer"/>.
@@ -89,31 +105,110 @@ namespace Newtonsoft.Json.Serialization
     // checked for after passed in converters and attribute specified converters
     internal JsonConverter InternalConverter { get; set; }
 
-#if !PocketPC
+    /// <summary>
+    /// Gets or sets all methods called immediately after deserialization of the object.
+    /// </summary>
+    /// <value>The methods called immediately after deserialization of the object.</value>
+    public IList<SerializationCallback> OnDeserializedCallbacks { get; private set; }
+
+    /// <summary>
+    /// Gets or sets all methods called during deserialization of the object.
+    /// </summary>
+    /// <value>The methods called during deserialization of the object.</value>
+    public IList<SerializationCallback> OnDeserializingCallbacks { get; private set; }
+
+    /// <summary>
+    /// Gets or sets all methods called after serialization of the object graph.
+    /// </summary>
+    /// <value>The methods called after serialization of the object graph.</value>
+    public IList<SerializationCallback> OnSerializedCallbacks { get; private set; }
+
+    /// <summary>
+    /// Gets or sets all methods called before serialization of the object.
+    /// </summary>
+    /// <value>The methods called before serialization of the object.</value>
+    public IList<SerializationCallback> OnSerializingCallbacks { get; private set; }
+
+    /// <summary>
+    /// Gets or sets all method called when an error is thrown during the serialization of the object.
+    /// </summary>
+    /// <value>The methods called when an error is thrown during the serialization of the object.</value>
+    public IList<SerializationErrorCallback> OnErrorCallbacks { get; private set; }
+
     /// <summary>
     /// Gets or sets the method called immediately after deserialization of the object.
     /// </summary>
     /// <value>The method called immediately after deserialization of the object.</value>
-    public MethodInfo OnDeserialized { get; set; }
+    [Obsolete("This property is obsolete and has been replaced by the OnDeserializedCallbacks collection.")]
+    public MethodInfo OnDeserialized
+    {
+      get { return (OnDeserializedCallbacks.Count > 0) ? OnDeserializedCallbacks[0].Method() : null; }
+      set
+      {
+        OnDeserializedCallbacks.Clear();
+        OnDeserializedCallbacks.Add(CreateSerializationCallback(value));
+      }
+    }
 
     /// <summary>
     /// Gets or sets the method called during deserialization of the object.
     /// </summary>
     /// <value>The method called during deserialization of the object.</value>
-    public MethodInfo OnDeserializing { get; set; }
+    [Obsolete("This property is obsolete and has been replaced by the OnDeserializingCallbacks collection.")]
+    public MethodInfo OnDeserializing 
+    {
+      get { return (OnDeserializingCallbacks.Count > 0) ? OnDeserializingCallbacks[0].Method() : null; }
+      set 
+      {
+        OnDeserializingCallbacks.Clear();
+        OnDeserializingCallbacks.Add(CreateSerializationCallback(value));
+      }
+    }
 
     /// <summary>
     /// Gets or sets the method called after serialization of the object graph.
     /// </summary>
     /// <value>The method called after serialization of the object graph.</value>
-    public MethodInfo OnSerialized { get; set; }
+    [Obsolete("This property is obsolete and has been replaced by the OnSerializedCallbacks collection.")]
+    public MethodInfo OnSerialized 
+    {
+      get { return (OnSerializedCallbacks.Count > 0) ? OnSerializedCallbacks[0].Method() : null; }
+      set 
+      {
+        OnSerializedCallbacks.Clear();
+        OnSerializedCallbacks.Add(CreateSerializationCallback(value));
+      }
+    }
 
     /// <summary>
     /// Gets or sets the method called before serialization of the object.
     /// </summary>
     /// <value>The method called before serialization of the object.</value>
-    public MethodInfo OnSerializing { get; set; }
-#endif
+    [Obsolete("This property is obsolete and has been replaced by the OnSerializingCallbacks collection.")]
+    public MethodInfo OnSerializing 
+    {
+      get { return (OnSerializingCallbacks.Count > 0) ? OnSerializingCallbacks[0].Method() : null; }
+      set 
+      {
+        OnSerializingCallbacks.Clear();
+        OnSerializingCallbacks.Add(CreateSerializationCallback(value));
+      }
+    }
+
+    /// <summary>
+    /// Gets or sets the method called when an error is thrown during the serialization of the object.
+    /// </summary>
+    /// <value>The method called when an error is thrown during the serialization of the object.</value>
+    [Obsolete("This property is obsolete and has been replaced by the OnErrorCallbacks collection.")]
+    public MethodInfo OnError
+    {
+      get { return (OnErrorCallbacks.Count > 0) ? OnErrorCallbacks[0].Method() : null; }
+      set
+      {
+        OnErrorCallbacks.Clear();
+        OnErrorCallbacks.Add(CreateSerializationErrorCallback(value));
+      }
+    }
 
     /// <summary>
     /// Gets or sets the default creator method used to create the object.
@@ -126,50 +221,6 @@ namespace Newtonsoft.Json.Serialization
     /// </summary>
     /// <value><c>true</c> if the default object creator is non-public; otherwise, <c>false</c>.</value>
     public bool DefaultCreatorNonPublic { get; set; }
-
-    /// <summary>
-    /// Gets or sets the method called when an error is thrown during the serialization of the object.
-    /// </summary>
-    /// <value>The method called when an error is thrown during the serialization of the object.</value>
-    public MethodInfo OnError { get; set; }
-
-    internal void InvokeOnSerializing(object o, StreamingContext context)
-    {
-#if !PocketPC
-      if (OnSerializing != null)
-        OnSerializing.Invoke(o, new object[] {context});
-#endif
-    }
-
-    internal void InvokeOnSerialized(object o, StreamingContext context)
-    {
-#if !PocketPC
-      if (OnSerialized != null)
-        OnSerialized.Invoke(o, new object[] {context});
-#endif
-    }
-
-    internal void InvokeOnDeserializing(object o, StreamingContext context)
-    {
-#if !PocketPC
-      if (OnDeserializing != null)
-        OnDeserializing.Invoke(o, new object[] {context});
-#endif
-    }
-
-    internal void InvokeOnDeserialized(object o, StreamingContext context)
-    {
-#if !PocketPC
-      if (OnDeserialized != null)
-        OnDeserialized.Invoke(o, new object[] {context});
-#endif
-    }
-
-    internal void InvokeOnError(object o, StreamingContext context, ErrorContext errorContext)
-    {
-      if (OnError != null)
-        OnError.Invoke(o, new object[] {context, errorContext});
-    }
 
     internal JsonContract(Type underlyingType)
     {
@@ -214,6 +265,62 @@ namespace Newtonsoft.Json.Serialization
       {
         InternalReadType = ReadType.Read;
       }
+
+      OnErrorCallbacks = new List<SerializationErrorCallback>();
+      OnSerializedCallbacks = new List<SerializationCallback>();
+      OnSerializingCallbacks = new List<SerializationCallback>();
+      OnDeserializedCallbacks = new List<SerializationCallback>();
+      OnDeserializingCallbacks = new List<SerializationCallback>();
+    }
+
+    internal void InvokeOnSerializing(object o, StreamingContext context)
+    {
+      foreach (SerializationCallback callback in OnSerializingCallbacks)
+      {
+        callback(o, context);
+      }
+    }
+
+    internal void InvokeOnSerialized(object o, StreamingContext context)
+    {
+      foreach (SerializationCallback callback in OnSerializedCallbacks)
+      {
+        callback(o, context);
+      }
+    }
+
+    internal void InvokeOnDeserializing(object o, StreamingContext context)
+    {
+      foreach (SerializationCallback callback in OnDeserializingCallbacks)
+      {
+        callback(o, context);
+      }
+    }
+
+    internal void InvokeOnDeserialized(object o, StreamingContext context)
+    {
+      foreach (SerializationCallback callback in OnDeserializedCallbacks)
+      {
+        callback(o, context);
+      }
+    }
+
+    internal void InvokeOnError(object o, StreamingContext context, ErrorContext errorContext)
+    {
+      foreach (SerializationErrorCallback callback in OnErrorCallbacks)
+      {
+        callback(o, context, errorContext);
+      }
+    }
+
+    internal static SerializationCallback CreateSerializationCallback(MethodInfo callbackMethodInfo)
+    {
+      return  (o, context) => callbackMethodInfo.Invoke(o, new object[] { context });
+    }
+
+    internal static SerializationErrorCallback CreateSerializationErrorCallback(MethodInfo callbackMethodInfo)
+    {
+      return (o, context, econtext) => callbackMethodInfo.Invoke(o, new object[] { context, econtext });
     }
   }
 }

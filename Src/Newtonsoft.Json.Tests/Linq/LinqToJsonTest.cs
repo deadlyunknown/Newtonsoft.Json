@@ -396,7 +396,7 @@ keyword such as type of business.""
         new Post()
         {
           Title = "Json.NET 1.3 + New license + Now on CodePlex",
-          Description = "Annoucing the release of Json.NET 1.3, the MIT license and the source being available on CodePlex",
+          Description = "Annoucing the release of Json.NET 1.3, the MIT license and being available on CodePlex",
           Link = "http://james.newtonking.com/projects/json-net.aspx",
           Categories = new List<string>() { "Json.NET", "CodePlex" }
         }
@@ -438,7 +438,7 @@ keyword such as type of business.""
       //    "item": [
       //      {
       //        "title": "Json.NET 1.3 + New license + Now on CodePlex",
-      //        "description": "Annoucing the release of Json.NET 1.3, the MIT license and the source being available on CodePlex",
+      //        "description": "Annoucing the release of Json.NET 1.3, the MIT license and being available on CodePlex",
       //        "link": "http://james.newtonking.com/projects/json-net.aspx",
       //        "category": [
       //          "Json.NET",
@@ -497,7 +497,7 @@ keyword such as type of business.""
                           ""item"": [
                             {
                               ""title"": ""Json.NET 1.3 + New license + Now on CodePlex"",
-                              ""description"": ""Annoucing the release of Json.NET 1.3, the MIT license and the source being available on CodePlex"",
+                              ""description"": ""Annoucing the release of Json.NET 1.3, the MIT license and being available on CodePlex"",
                               ""link"": ""http://james.newtonking.com/projects/json-net.aspx"",
                               ""category"": [
                                 ""Json.NET"",
@@ -565,7 +565,7 @@ keyword such as type of business.""
       });
     }
 
-#if !PocketPC && !NET20
+#if !NET20
     [Test]
     public void ToStringJsonConverter()
     {
@@ -718,7 +718,7 @@ keyword such as type of business.""
       Assert.AreEqual(new DateTime(2000, 10, 15, 5, 5, 5, DateTimeKind.Utc), d);
     }
 
-#if !(NET20 || NET35 || SILVERLIGHT || PORTABLE)
+#if !(NET20 || NET35 || SILVERLIGHT)
     [Test]
     public void CovariantIJEnumerable()
     {
@@ -744,7 +744,7 @@ keyword such as type of business.""
                           ""item"": [
                             {
                               ""title"": ""Json.NET 1.3 + New license + Now on CodePlex"",
-                              ""description"": ""Annoucing the release of Json.NET 1.3, the MIT license and the source being available on CodePlex"",
+                              ""description"": ""Annoucing the release of Json.NET 1.3, the MIT license and being available on CodePlex"",
                               ""link"": ""http://james.newtonking.com/projects/json-net.aspx"",
                               ""category"": [
                                 ""Json.NET"",
@@ -769,7 +769,7 @@ keyword such as type of business.""
                           ""item"": [
                             {
                               ""title"": ""Json.NET 1.3 + New license + Now on CodePlex"",
-                              ""description"": ""Annoucing the release of Json.NET 1.3, the MIT license and the source being available on CodePlex"",
+                              ""description"": ""Annoucing the release of Json.NET 1.3, the MIT license and being available on CodePlex"",
                               ""link"": ""http://james.newtonking.com/projects/json-net.aspx"",
                               ""category"": [
                                 ""Json.NET"",
@@ -864,5 +864,24 @@ keyword such as type of business.""
       JArray a = JArray.Parse(json);
       Assert.AreEqual("hi!", (string)a[0]);
     }
+
+#if !(NET35 || NET20 || WINDOWS_PHONE)
+    [Test]
+    public void ExceptionFromOverloadWithJValue()
+    {
+      dynamic name = new JValue("Matthew Doig");
+
+      IDictionary<string, string> users = new Dictionary<string, string>();
+
+      // unfortunatly there doesn't appear to be a way around this
+      ExceptionAssert.Throws<Microsoft.CSharp.RuntimeBinder.RuntimeBinderException>("The best overloaded method match for 'System.Collections.Generic.IDictionary<string,string>.Add(string, string)' has some invalid arguments",
+        () =>
+          {
+            users.Add("name2", name);
+
+            Assert.AreEqual(users["name2"], "Matthew Doig");
+          });
+    }
+#endif
   }
 }

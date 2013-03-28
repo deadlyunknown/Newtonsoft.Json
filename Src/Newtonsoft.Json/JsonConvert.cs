@@ -27,13 +27,16 @@ using System;
 using System.IO;
 using System.Globalization;
 #if !(NET20 || NET35 || SILVERLIGHT || PORTABLE)
+using System.Numerics;
+#endif
+#if !(NET20 || NET35 || SILVERLIGHT)
 using System.Threading.Tasks;
 #endif
 using Newtonsoft.Json.Utilities;
 using System.Xml;
 using Newtonsoft.Json.Converters;
 using System.Text;
-#if !NET20 && (!SILVERLIGHT || WINDOWS_PHONE) && !PORTABLE
+#if !NET20 && (!SILVERLIGHT || WINDOWS_PHONE)
 using System.Xml.Linq;
 #endif
 #if NETFX_CORE
@@ -110,7 +113,9 @@ namespace Newtonsoft.Json
 
       using (StringWriter writer = StringUtils.CreateStringWriter(64))
       {
+        writer.Write('"');
         WriteDateTimeString(writer, updatedDateTime, updatedDateTime.GetUtcOffset(), updatedDateTime.Kind, format);
+        writer.Write('"');
         return writer.ToString();
       }
     }
@@ -137,7 +142,7 @@ namespace Newtonsoft.Json
       return value;
     }
 
-#if !PocketPC && !NET20
+#if !NET20
     /// <summary>
     /// Converts the <see cref="DateTimeOffset"/> to its JSON string representation.
     /// </summary>
@@ -158,15 +163,36 @@ namespace Newtonsoft.Json
     {
       using (StringWriter writer = StringUtils.CreateStringWriter(64))
       {
-        WriteDateTimeString(writer, (format == DateFormatHandling.IsoDateFormat) ? value.DateTime : value.UtcDateTime, value.Offset, DateTimeKind.Local, format);
+        writer.Write('"');
+        WriteDateTimeOffsetString(writer, value, format, null, CultureInfo.InvariantCulture);
+        writer.Write('"');
         return writer.ToString();
+      }
+    }
+
+    internal static void WriteDateTimeOffsetString(TextWriter writer, DateTimeOffset value, DateFormatHandling format, string formatString, CultureInfo culture)
+    {
+      if (string.IsNullOrEmpty(formatString))
+      {
+        WriteDateTimeString(writer, (format == DateFormatHandling.IsoDateFormat) ? value.DateTime : value.UtcDateTime, value.Offset, DateTimeKind.Local, format);
+      }
+      else
+      {
+        writer.Write(value.ToString(formatString, culture));
       }
     }
 #endif
 
-    internal static void WriteDateTimeString(TextWriter writer, DateTime value, DateFormatHandling format)
+    internal static void WriteDateTimeString(TextWriter writer, DateTime value, DateFormatHandling format, string formatString, CultureInfo culture)
     {
-      WriteDateTimeString(writer, value, value.GetUtcOffset(), value.Kind, format);
+      if (string.IsNullOrEmpty(formatString))
+      {
+        WriteDateTimeString(writer, value, value.GetUtcOffset(), value.Kind, format);
+      }
+      else
+      {
+        writer.Write(value.ToString(formatString, culture));
+      }
     }
 
     internal static void WriteDateTimeString(TextWriter writer, DateTime value, TimeSpan offset, DateTimeKind kind, DateFormatHandling format)
@@ -175,7 +201,7 @@ namespace Newtonsoft.Json
       {
         long javaScriptTicks = ConvertDateTimeToJavaScriptTicks(value, offset);
 
-        writer.Write(@"""\/Date(");
+        writer.Write(@"\/Date(");
         writer.Write(javaScriptTicks);
 
         switch (kind)
@@ -189,12 +215,11 @@ namespace Newtonsoft.Json
             break;
         }
 
-        writer.Write(@")\/""");
+        writer.Write(@")\/");
       }
       else
       {
-        writer.Write(@"""");
-        writer.Write(value.ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss.FFFFFFF", CultureInfo.InvariantCulture));
+        writer.Write(value.ToString(@"yyyy'-'MM'-'dd'T'HH':'mm':'ss.FFFFFFF", CultureInfo.InvariantCulture));
 
         switch (kind)
         {
@@ -206,8 +231,6 @@ namespace Newtonsoft.Json
             break;
         }
 
-
-        writer.Write(@"""");
       }
     }
 
@@ -401,6 +424,18 @@ namespace Newtonsoft.Json
       return value.ToString(null, CultureInfo.InvariantCulture);
     }
 
+#if !(NET20 || NET35 || SILVERLIGHT || PORTABLE)
+    /// <summary>
+    /// Converts the <see cref="BigInteger"/>  to its JSON string representation.
+    /// </summary>
+    /// <param name="value">The value to convert.</param>
+    /// <returns>A JSON string representation of the <see cref="BigInteger"/>.</returns>
+    public static string ToString(BigInteger value)
+    {
+      return value.ToString(null, CultureInfo.InvariantCulture);
+    }
+#endif
+
     /// <summary>
     /// Converts the <see cref="UInt64"/> to its JSON string representation.
     /// </summary>
@@ -422,6 +457,22 @@ namespace Newtonsoft.Json
       return EnsureDecimalPlace(value, value.ToString("R", CultureInfo.InvariantCulture));
     }
 
+    internal static string ToString(float value, FloatFormatHandling floatFormatHandling, char quoteChar, bool nullable)
+    {
+      return EnsureFloatFormat(value, EnsureDecimalPlace(value, value.ToString("R", CultureInfo.InvariantCulture)), floatFormatHandling, quoteChar, nullable);
+    }
+
+    private static string EnsureFloatFormat(double value, string text, FloatFormatHandling floatFormatHandling, char quoteChar, bool nullable)
+    {
+      if (floatFormatHandling == FloatFormatHandling.Symbol || !(double.IsInfinity(value) || double.IsNaN(value)))
+        return text;
+
+      if (floatFormatHandling == FloatFormatHandling.DefaultValue)
+        return (!nullable) ? "0.0" : Null;
+      
+      return quoteChar + text + quoteChar;
+    }
+
     /// <summary>
     /// Converts the <see cref="Double"/> to its JSON string representation.
     /// </summary>
@@ -430,6 +481,11 @@ namespace Newtonsoft.Json
     public static string ToString(double value)
     {
       return EnsureDecimalPlace(value, value.ToString("R", CultureInfo.InvariantCulture));
+    }
+
+    internal static string ToString(double value, FloatFormatHandling floatFormatHandling, char quoteChar, bool nullable)
+    {
+      return EnsureFloatFormat(value, EnsureDecimalPlace(value, value.ToString("R", CultureInfo.InvariantCulture)), floatFormatHandling, quoteChar, nullable);
     }
 
     private static string EnsureDecimalPlace(double value, string text)
@@ -486,6 +542,11 @@ namespace Newtonsoft.Json
     /// <returns>A JSON string representation of the <see cref="Guid"/>.</returns>
     public static string ToString(Guid value)
     {
+      return ToString(value, '"');
+    }
+
+    internal static string ToString(Guid value, char quoteChar)
+    {
       string text = null;
 
 #if !(NETFX_CORE || PORTABLE)
@@ -494,7 +555,7 @@ namespace Newtonsoft.Json
       text = value.ToString("D");
 #endif
 
-      return '"' + text + '"';
+      return quoteChar + text + quoteChar;
     }
 
     /// <summary>
@@ -504,7 +565,12 @@ namespace Newtonsoft.Json
     /// <returns>A JSON string representation of the <see cref="TimeSpan"/>.</returns>
     public static string ToString(TimeSpan value)
     {
-      return '"' + value.ToString() + '"';
+      return ToString(value, '"');
+    }
+
+    internal static string ToString(TimeSpan value, char quoteChar)
+    {
+      return ToString(value.ToString(), quoteChar);
     }
 
     /// <summary>
@@ -517,7 +583,12 @@ namespace Newtonsoft.Json
       if (value == null)
         return Null;
 
-      return ToString(value.ToString());
+      return ToString(value, '"');
+    }
+
+    internal static string ToString(Uri value, char quoteChar)
+    {
+      return ToString(value.ToString(), quoteChar);
     }
 
     /// <summary>
@@ -534,11 +605,14 @@ namespace Newtonsoft.Json
     /// Converts the <see cref="String"/> to its JSON string representation.
     /// </summary>
     /// <param name="value">The value to convert.</param>
-    /// <param name="delimter">The string delimiter character.</param>
+    /// <param name="delimiter">The string delimiter character.</param>
     /// <returns>A JSON string representation of the <see cref="String"/>.</returns>
-    public static string ToString(string value, char delimter)
+    public static string ToString(string value, char delimiter)
     {
-      return JavaScriptUtils.ToEscapedJavaScriptString(value, delimter, true);
+      if (delimiter != '"' && delimiter != '\'')
+        throw new ArgumentException("Delimiter must be a single or double quote.", "delimiter");
+
+      return JavaScriptUtils.ToEscapedJavaScriptString(value, delimiter, true);
     }
 
     /// <summary>
@@ -593,7 +667,7 @@ namespace Newtonsoft.Json
 #endif
         }
       }
-#if !PocketPC && !NET20
+#if !NET20
       else if (value is DateTimeOffset)
       {
         return ToString((DateTimeOffset) value);
@@ -611,6 +685,12 @@ namespace Newtonsoft.Json
       {
         return ToString((TimeSpan) value);
       }
+#if !(NET20 || NET35 || SILVERLIGHT || PORTABLE)
+      else if (value is BigInteger)
+      {
+        return ToString((BigInteger) value);
+      }
+#endif
 
       throw new ArgumentException("Unsupported type: {0}. Use the JsonSerializer class to get the object's JSON representation.".FormatWith(CultureInfo.InvariantCulture, value.GetType()));
     }
@@ -648,7 +728,7 @@ namespace Newtonsoft.Json
       if (ReflectionUtils.IsNullableType(type))
         type = Nullable.GetUnderlyingType(type);
 
-#if !PocketPC && !NET20
+#if !NET20
       if (type == typeof (DateTimeOffset))
         return true;
 #endif
@@ -660,8 +740,132 @@ namespace Newtonsoft.Json
         return true;
       if (type == typeof (Guid))
         return true;
+#if !(NET20 || NET35 || SILVERLIGHT || PORTABLE)
+      if (type == typeof (BigInteger))
+        return true;
+#endif
 
       return IsJsonPrimitiveTypeCode(ConvertUtils.GetTypeCode(type));
+    }
+
+    internal static bool TryParseDateTime(string s, DateParseHandling dateParseHandling, DateTimeZoneHandling dateTimeZoneHandling, out object dt)
+    {
+      if (s.Length > 0)
+      {
+        if (s[0] == '/')
+        {
+          if (s.StartsWith("/Date(", StringComparison.Ordinal) && s.EndsWith(")/", StringComparison.Ordinal))
+          {
+            return TryParseDateMicrosoft(s, dateParseHandling, dateTimeZoneHandling, out dt);
+          }
+        }
+        else if (char.IsDigit(s[0]) && s.Length >= 19 && s.Length <= 40)
+        {
+          return TryParseDateIso(s, dateParseHandling, dateTimeZoneHandling, out dt);
+        }
+      }
+
+      dt = null;
+      return false;
+    }
+
+    private static bool TryParseDateIso(string text, DateParseHandling dateParseHandling, DateTimeZoneHandling dateTimeZoneHandling, out object dt)
+    {
+      const string isoDateFormat = "yyyy-MM-ddTHH:mm:ss.FFFFFFFK";
+
+#if !NET20
+      if (dateParseHandling == DateParseHandling.DateTimeOffset)
+      {
+        DateTimeOffset dateTimeOffset;
+        if (DateTimeOffset.TryParseExact(text, isoDateFormat, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out dateTimeOffset))
+        {
+          dt = dateTimeOffset;
+          return true;
+        }
+      }
+      else
+#endif
+      {
+        DateTime dateTime;
+        if (DateTime.TryParseExact(text, isoDateFormat, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out dateTime))
+        {
+          dateTime = EnsureDateTime(dateTime, dateTimeZoneHandling);
+
+          dt = dateTime;
+          return true;
+        }
+      }
+
+      dt = null;
+      return false;
+    }
+
+    private static bool TryParseDateMicrosoft(string text, DateParseHandling dateParseHandling, DateTimeZoneHandling dateTimeZoneHandling, out object dt)
+    {
+      string value = text.Substring(6, text.Length - 8);
+      DateTimeKind kind = DateTimeKind.Utc;
+
+      int index = value.IndexOf('+', 1);
+
+      if (index == -1)
+        index = value.IndexOf('-', 1);
+
+      TimeSpan offset = TimeSpan.Zero;
+
+      if (index != -1)
+      {
+        kind = DateTimeKind.Local;
+        offset = ReadOffset(value.Substring(index));
+        value = value.Substring(0, index);
+      }
+
+      long javaScriptTicks = long.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture);
+
+      DateTime utcDateTime = ConvertJavaScriptTicksToDateTime(javaScriptTicks);
+
+#if !NET20
+      if (dateParseHandling == DateParseHandling.DateTimeOffset)
+      {
+        dt = new DateTimeOffset(utcDateTime.Add(offset).Ticks, offset);
+        return true;
+      }
+      else
+#endif
+      {
+        DateTime dateTime;
+
+        switch (kind)
+        {
+          case DateTimeKind.Unspecified:
+            dateTime = DateTime.SpecifyKind(utcDateTime.ToLocalTime(), DateTimeKind.Unspecified);
+            break;
+          case DateTimeKind.Local:
+            dateTime = utcDateTime.ToLocalTime();
+            break;
+          default:
+            dateTime = utcDateTime;
+            break;
+        }
+
+        dt = EnsureDateTime(dateTime, dateTimeZoneHandling);
+        return true;
+      }
+    }
+
+    private static TimeSpan ReadOffset(string offsetText)
+    {
+      bool negative = (offsetText[0] == '-');
+
+      int hours = int.Parse(offsetText.Substring(1, 2), NumberStyles.Integer, CultureInfo.InvariantCulture);
+      int minutes = 0;
+      if (offsetText.Length >= 5)
+        minutes = int.Parse(offsetText.Substring(3, 2), NumberStyles.Integer, CultureInfo.InvariantCulture);
+
+      TimeSpan offset = TimeSpan.FromHours(hours) + TimeSpan.FromMinutes(minutes);
+      if (negative)
+        offset = offset.Negate();
+
+      return offset;
     }
 
     #region Serialize
@@ -741,6 +945,26 @@ namespace Newtonsoft.Json
     /// </returns>
     public static string SerializeObject(object value, Formatting formatting, JsonSerializerSettings settings)
     {
+      return SerializeObject(value, null, formatting, settings);
+    }
+
+    /// <summary>
+    /// Serializes the specified object to a JSON string using a collection of <see cref="JsonConverter"/>.
+    /// </summary>
+    /// <param name="value">The object to serialize.</param>
+    /// <param name="formatting">Indicates how the output is formatted.</param>
+    /// <param name="settings">The <see cref="JsonSerializerSettings"/> used to serialize the object.
+    /// If this is null, default serialization settings will be is used.</param>
+    /// <param name="type">
+    /// The type of the value being serialized.
+    /// This parameter is used when <see cref="TypeNameHandling"/> is Auto to write out the type name if the type of the value does not match.
+    /// Specifing the type is optional.
+    /// </param>
+    /// <returns>
+    /// A JSON string representation of the object.
+    /// </returns>
+    public static string SerializeObject(object value, Type type, Formatting formatting, JsonSerializerSettings settings)
+    {
       JsonSerializer jsonSerializer = JsonSerializer.Create(settings);
 
       StringBuilder sb = new StringBuilder(256);
@@ -749,13 +973,13 @@ namespace Newtonsoft.Json
       {
         jsonWriter.Formatting = formatting;
 
-        jsonSerializer.Serialize(jsonWriter, value);
+        jsonSerializer.Serialize(jsonWriter, value, type);
       }
 
       return sw.ToString();
     }
 
-#if !(NET20 || NET35 || SILVERLIGHT || PORTABLE)
+#if !(NET20 || NET35 || SILVERLIGHT)
     /// <summary>
     /// Asynchronously serializes the specified object to a JSON string using a collection of <see cref="JsonConverter"/>.
     /// </summary>
@@ -862,6 +1086,26 @@ namespace Newtonsoft.Json
     }
 
     /// <summary>
+    /// Deserializes the JSON to the given anonymous type.
+    /// </summary>
+    /// <typeparam name="T">
+    /// The anonymous type to deserialize to. This can't be specified
+    /// traditionally and must be infered from the anonymous type passed
+    /// as a parameter.
+    /// </typeparam>
+    /// <param name="value">The JSON to deserialize.</param>
+    /// <param name="anonymousTypeObject">The anonymous type object.</param>
+    /// <param name="settings">
+    /// The <see cref="JsonSerializerSettings"/> used to deserialize the object.
+    /// If this is null, default serialization settings will be is used.
+    /// </param>
+    /// <returns>The deserialized anonymous type from the JSON string.</returns>
+    public static T DeserializeAnonymousType<T>(string value, T anonymousTypeObject, JsonSerializerSettings settings)
+    {
+      return DeserializeObject<T>(value, settings);
+    }
+
+    /// <summary>
     /// Deserializes the JSON to the specified .NET type.
     /// </summary>
     /// <typeparam name="T">The type of the object to deserialize to.</typeparam>
@@ -928,7 +1172,7 @@ namespace Newtonsoft.Json
       return jsonSerializer.Deserialize(new JsonTextReader(sr), type);
     }
 
-#if !(NET20 || NET35 || SILVERLIGHT || PORTABLE)
+#if !(NET20 || NET35 || SILVERLIGHT)
     /// <summary>
     /// Asynchronously deserializes the JSON to the specified .NET type.
     /// </summary>
@@ -1023,7 +1267,7 @@ namespace Newtonsoft.Json
       }
     }
 
-#if !(NET20 || NET35 || SILVERLIGHT || PORTABLE)
+#if !(NET20 || NET35 || SILVERLIGHT)
     /// <summary>
     /// Asynchronously populates the object with values from the JSON string.
     /// </summary>
@@ -1121,7 +1365,7 @@ namespace Newtonsoft.Json
     }
 #endif
 
-#if !NET20 && (!(SILVERLIGHT || PORTABLE) || WINDOWS_PHONE)
+#if !NET20 && (!(SILVERLIGHT) || WINDOWS_PHONE)
     /// <summary>
     /// Serializes the <see cref="XNode"/> to a JSON string.
     /// </summary>

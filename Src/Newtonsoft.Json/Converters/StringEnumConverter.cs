@@ -100,9 +100,8 @@ namespace Newtonsoft.Json.Converters
     /// <returns>The object value.</returns>
     public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
     {
-      Type t = (ReflectionUtils.IsNullableType(objectType))
-      ? Nullable.GetUnderlyingType(objectType)
-      : objectType;
+      bool isNullable = ReflectionUtils.IsNullableType(objectType);
+      Type t = isNullable ? Nullable.GetUnderlyingType(objectType) : objectType;
 
       if (reader.TokenType == JsonToken.Null)
       {
@@ -112,27 +111,34 @@ namespace Newtonsoft.Json.Converters
         return null;
       }
 
-      if (reader.TokenType == JsonToken.String)
+      try
       {
-        var map = GetEnumNameMap(t);
-        string resolvedEnumName;
-        map.TryGetBySecond(reader.Value.ToString(), out resolvedEnumName);
-        resolvedEnumName = resolvedEnumName ?? reader.Value.ToString();
+        if (reader.TokenType == JsonToken.String)
+        {
+          string enumText = reader.Value.ToString();
+          if (enumText == string.Empty && isNullable)
+            return null;
 
-        return Enum.Parse(t, resolvedEnumName, true);
+          var map = GetEnumNameMap(t);
+          string resolvedEnumName;
+          map.TryGetBySecond(enumText, out resolvedEnumName);
+          resolvedEnumName = resolvedEnumName ?? enumText;
+
+          return Enum.Parse(t, resolvedEnumName, true);
+        }
+
+        if (reader.TokenType == JsonToken.Integer)
+          return ConvertUtils.ConvertOrCast(reader.Value, CultureInfo.InvariantCulture, t);
+      }
+      catch (Exception ex)
+      {
+        throw JsonSerializationException.Create(reader, "Error converting value {0} to type '{1}'.".FormatWith(CultureInfo.InvariantCulture, MiscellaneousUtils.FormatValueForPrint(reader.Value), objectType), ex);
       }
 
-      if (reader.TokenType == JsonToken.Integer)
-        return ConvertUtils.ConvertOrCast(reader.Value, CultureInfo.InvariantCulture, t);
 
       throw JsonSerializationException.Create(reader, "Unexpected token when parsing enum. Expected String or Integer, got {0}.".FormatWith(CultureInfo.InvariantCulture, reader.TokenType));
     }
 
-    /// <summary>
-    /// A cached representation of the Enum string representation to respect per Enum field name.
-    /// </summary>
-    /// <param name="t">The type of the Enum.</param>
-    /// <returns>A map of enum field name to either the field name, or the configured enum member name (<see cref="EnumMemberAttribute"/>).</returns>
     private BidirectionalDictionary<string, string> GetEnumNameMap(Type t)
     {
       BidirectionalDictionary<string, string> map;

@@ -23,7 +23,7 @@
 // OTHER DEALINGS IN THE SOFTWARE.
 #endregion
 
-#if !(NET35 || NET20 || WINDOWS_PHONE || PORTABLE)
+#if !(NET35 || NET20)
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -63,10 +63,13 @@ namespace Newtonsoft.Json.Tests.Serialization
 
       Dictionary<string, object> values = new Dictionary<string, object>();
 
+      IContractResolver c = DefaultContractResolver.Instance;
+      JsonDynamicContract dynamicContract = (JsonDynamicContract)c.ResolveContract(dynamicObject.GetType());
+
       foreach (string memberName in dynamicObject.GetDynamicMemberNames())
       {
         object value;
-        dynamicObject.TryGetMember(memberName, out value);
+        dynamicContract.TryGetMember(dynamicObject, memberName, out value);
 
         values.Add(memberName, value);
       }
@@ -97,6 +100,7 @@ namespace Newtonsoft.Json.Tests.Serialization
       Assert.AreEqual(dynamicObject.ChildObject.Text, d.ChildObject.Text);
     }
 
+#if !PORTABLE
     [Test]
     public void SerializeDynamicObjectWithObjectTracking()
     {
@@ -145,6 +149,7 @@ namespace Newtonsoft.Json.Tests.Serialization
       Assert.AreEqual("Child text!", n.DynamicChildObject.Text);
       Assert.AreEqual(int.MinValue, n.DynamicChildObject.Integer);
     }
+#endif
 
     [Test]
     public void NoPublicDefaultConstructor()

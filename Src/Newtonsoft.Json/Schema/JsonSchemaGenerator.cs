@@ -295,7 +295,6 @@ namespace Newtonsoft.Json.Schema
             if (CurrentSchema.Type == JsonSchemaType.Integer && type.IsEnum() && !type.IsDefined(typeof (FlagsAttribute), true))
             {
               CurrentSchema.Enum = new List<JToken>();
-              CurrentSchema.Options = new Dictionary<JToken, string>();
 
               EnumValues<long> enumValues = EnumUtils.GetNamesAndValues<long>(type);
               foreach (EnumValue<long> enumValue in enumValues)
@@ -303,7 +302,6 @@ namespace Newtonsoft.Json.Schema
                 JToken value = JToken.FromObject(enumValue.Value);
 
                 CurrentSchema.Enum.Add(value);
-                CurrentSchema.Options.Add(value, enumValue.Name);
               }
             }
             break;
@@ -337,7 +335,7 @@ namespace Newtonsoft.Json.Schema
             GenerateISerializableContract(type, (JsonISerializableContract) contract);
             break;
 #endif
-#if !(NET35 || NET20 || WINDOWS_PHONE || PORTABLE)
+#if !(NET35 || NET20 || WINDOWS_PHONE)
           case JsonContractType.Dynamic:
 #endif
           case JsonContractType.Linq:

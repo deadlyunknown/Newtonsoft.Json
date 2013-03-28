@@ -112,6 +112,7 @@ namespace Newtonsoft.Json
     private int? _maxDepth;
     private bool _hasExceededMaxDepth;
     internal DateParseHandling _dateParseHandling;
+    internal FloatParseHandling _floatParseHandling;
     private readonly List<JsonPosition> _stack;
 
     /// <summary>
@@ -158,6 +159,15 @@ namespace Newtonsoft.Json
     {
       get { return _dateParseHandling; }
       set { _dateParseHandling = value; }
+    }
+
+    /// <summary>
+    /// Get or set how floating point numbers, e.g. 1.0 and 9.9, are parsed when reading JSON text.
+    /// </summary>
+    public FloatParseHandling FloatParseHandling
+    {
+      get { return _floatParseHandling; }
+      set { _floatParseHandling = value; }
     }
 
     /// <summary>
@@ -225,7 +235,15 @@ namespace Newtonsoft.Json
         if (_currentPosition.Type == JsonContainerType.None)
           return string.Empty;
 
-        return JsonPosition.BuildPath(_stack.Concat(new[] { _currentPosition }));
+        bool insideContainer = (_currentState != State.ArrayStart
+          && _currentState != State.ConstructorStart
+          && _currentState != State.ObjectStart);
+
+        IEnumerable<JsonPosition> positions = (!insideContainer)
+          ? _stack
+          : _stack.Concat(new[] {_currentPosition});
+
+        return JsonPosition.BuildPath(positions);
       }
     }
 
@@ -255,6 +273,7 @@ namespace Newtonsoft.Json
       _stack = new List<JsonPosition>(4);
       _dateTimeZoneHandling = DateTimeZoneHandling.RoundtripKind;
       _dateParseHandling = DateParseHandling.DateTime;
+      _floatParseHandling = FloatParseHandling.Double;
 
       CloseInput = true;
     }
@@ -265,16 +284,12 @@ namespace Newtonsoft.Json
 
       if (_currentPosition.Type == JsonContainerType.None)
       {
-        _currentPosition.Type = value;
+        _currentPosition = new JsonPosition(value);
       }
       else
       {
         _stack.Add(_currentPosition);
-        JsonPosition state = new JsonPosition
-        {
-          Type = value
-        };
-        _currentPosition = state;
+        _currentPosition = new JsonPosition(value);
 
         // this is a little hacky because Depth increases when first property/value is written but only testing here is faster/simpler
         if (_maxDepth != null && Depth + 1 > _maxDepth && !_hasExceededMaxDepth)
@@ -782,14 +797,8 @@ namespace Newtonsoft.Json
 
     private void UpdateScopeWithFinishedValue()
     {
-      if (_currentPosition.Type == JsonContainerType.Array
-        || _currentPosition.Type == JsonContainerType.Constructor)
-      {
-        if (_currentPosition.Position == null)
-          _currentPosition.Position = 0;
-        else
-          _currentPosition.Position++;
-      }
+      if (_currentPosition.HasIndex)
+        _currentPosition.Position++;
     }
 
     private void ValidateEnd(JsonToken endToken)

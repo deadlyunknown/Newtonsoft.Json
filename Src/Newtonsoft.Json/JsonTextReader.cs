@@ -26,6 +26,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+#if !(NET20 || NET35 || SILVERLIGHT || PORTABLE)
+using System.Numerics;
+#endif
 using System.Text;
 using System.IO;
 using System.Xml;
@@ -137,108 +140,26 @@ namespace Newtonsoft.Json
 
         if (_dateParseHandling != DateParseHandling.None)
         {
-          if (text.Length > 0)
+          DateParseHandling dateParseHandling;
+          if (_readType == ReadType.ReadAsDateTime)
+            dateParseHandling = DateParseHandling.DateTime;
+#if !NET20
+          else if (_readType == ReadType.ReadAsDateTimeOffset)
+            dateParseHandling = DateParseHandling.DateTimeOffset;
+#endif
+          else
+            dateParseHandling = _dateParseHandling;
+
+          object dt;
+          if (JsonConvert.TryParseDateTime(text, dateParseHandling, DateTimeZoneHandling, out dt))
           {
-            if (text[0] == '/')
-            {
-              if (text.StartsWith("/Date(", StringComparison.Ordinal) && text.EndsWith(")/", StringComparison.Ordinal))
-              {
-                ParseDateMicrosoft(text);
-                return;
-              }
-            }
-            else if (char.IsDigit(text[0]) && text.Length >= 19 && text.Length <= 40)
-            {
-              if (ParseDateIso(text))
-                return;
-            }
+            SetToken(JsonToken.Date, dt);
+            return;
           }
         }
 
         SetToken(JsonToken.String, text);
         QuoteChar = quote;
-      }
-    }
-
-    private bool ParseDateIso(string text)
-    {
-      const string isoDateFormat = "yyyy-MM-ddTHH:mm:ss.FFFFFFFK";
-
-#if !NET20
-      if (_readType == ReadType.ReadAsDateTimeOffset || (_readType == ReadType.Read && _dateParseHandling == DateParseHandling.DateTimeOffset))
-      {
-        DateTimeOffset dateTimeOffset;
-        if (DateTimeOffset.TryParseExact(text, isoDateFormat, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out dateTimeOffset))
-        {
-          SetToken(JsonToken.Date, dateTimeOffset);
-          return true;
-        }
-      }
-      else
-#endif
-      {
-        DateTime dateTime;
-        if (DateTime.TryParseExact(text, isoDateFormat, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out dateTime))
-        {
-          dateTime = JsonConvert.EnsureDateTime(dateTime, DateTimeZoneHandling);
-
-          SetToken(JsonToken.Date, dateTime);
-          return true;
-        }
-      }
-
-      return false;
-    }
-
-    private void ParseDateMicrosoft(string text)
-    {
-      string value = text.Substring(6, text.Length - 8);
-      DateTimeKind kind = DateTimeKind.Utc;
-
-      int index = value.IndexOf('+', 1);
-
-      if (index == -1)
-        index = value.IndexOf('-', 1);
-
-      TimeSpan offset = TimeSpan.Zero;
-
-      if (index != -1)
-      {
-        kind = DateTimeKind.Local;
-        offset = ReadOffset(value.Substring(index));
-        value = value.Substring(0, index);
-      }
-
-      long javaScriptTicks = long.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture);
-
-      DateTime utcDateTime = JsonConvert.ConvertJavaScriptTicksToDateTime(javaScriptTicks);
-
-#if !NET20
-      if (_readType == ReadType.ReadAsDateTimeOffset || (_readType == ReadType.Read && _dateParseHandling == DateParseHandling.DateTimeOffset))
-      {
-        SetToken(JsonToken.Date, new DateTimeOffset(utcDateTime.Add(offset).Ticks, offset));
-      }
-      else
-#endif
-      {
-        DateTime dateTime;
-
-        switch (kind)
-        {
-          case DateTimeKind.Unspecified:
-            dateTime = DateTime.SpecifyKind(utcDateTime.ToLocalTime(), DateTimeKind.Unspecified);
-            break;
-          case DateTimeKind.Local:
-            dateTime = utcDateTime.ToLocalTime();
-            break;
-          default:
-            dateTime = utcDateTime;
-            break;
-        }
-
-        dateTime = JsonConvert.EnsureDateTime(dateTime, DateTimeZoneHandling);
-
-        SetToken(JsonToken.Date, dateTime);
       }
     }
 
@@ -366,22 +287,6 @@ namespace Newtonsoft.Json
       if (totalCharsRead < charsRequired)
         return false;
       return true;
-    }
-
-    private static TimeSpan ReadOffset(string offsetText)
-    {
-      bool negative = (offsetText[0] == '-');
-
-      int hours = int.Parse(offsetText.Substring(1, 2), NumberStyles.Integer, CultureInfo.InvariantCulture);
-      int minutes = 0;
-      if (offsetText.Length >= 5)
-        minutes = int.Parse(offsetText.Substring(3, 2), NumberStyles.Integer, CultureInfo.InvariantCulture);
-
-      TimeSpan offset = TimeSpan.FromHours(hours) + TimeSpan.FromMinutes(minutes);
-      if (negative)
-        offset = offset.Negate();
-
-      return offset;
     }
 
     /// <summary>
@@ -1338,18 +1243,28 @@ namespace Newtonsoft.Json
           // it's faster to do 3 indexof with single characters than an indexofany
           if (number.IndexOf('.') != -1 || number.IndexOf('E') != -1 || number.IndexOf('e') != -1)
           {
-            numberValue = Convert.ToDouble(number, CultureInfo.InvariantCulture);
+            if (_floatParseHandling == FloatParseHandling.Decimal)
+              numberValue = decimal.Parse(number, NumberStyles.Number | NumberStyles.AllowExponent, CultureInfo.InvariantCulture);
+            else
+              numberValue = Convert.ToDouble(number, CultureInfo.InvariantCulture);
+
             numberType = JsonToken.Float;
           }
           else
           {
-            try
+            long value;
+            if (long.TryParse(number, out value))
             {
-              numberValue = Convert.ToInt64(number, CultureInfo.InvariantCulture);
+              numberValue = value;
             }
-            catch (OverflowException ex)
+            else
             {
-              throw JsonReaderException.Create((JsonReader)this, "JSON integer {0} is too large or small for an Int64.".FormatWith(CultureInfo.InvariantCulture, number), ex);
+#if !(NET20 || NET35 || SILVERLIGHT || PORTABLE)
+              numberValue = BigInteger.Parse(number, CultureInfo.InvariantCulture);
+#else
+              // todo - validate number was a valid integer to make sure overflow was the reason for failure
+              throw JsonReaderException.Create((JsonReader)this, "JSON integer {0} is too large or small for an Int64.".FormatWith(CultureInfo.InvariantCulture, number));
+#endif
             }
 
             numberType = JsonToken.Integer;
@@ -1541,6 +1456,9 @@ namespace Newtonsoft.Json
     {
       if (MatchValueWithTrailingSeperator(JsonConvert.NegativeInfinity))
       {
+        if (_floatParseHandling == FloatParseHandling.Decimal)
+          throw new JsonReaderException("Cannot read -Infinity as a decimal.");
+
         SetToken(JsonToken.Float, double.NegativeInfinity);
       }
       else
@@ -1553,6 +1471,9 @@ namespace Newtonsoft.Json
     {
       if (MatchValueWithTrailingSeperator(JsonConvert.PositiveInfinity))
       {
+        if (_floatParseHandling == FloatParseHandling.Decimal)
+          throw new JsonReaderException("Cannot read Infinity as a decimal.");
+
         SetToken(JsonToken.Float, double.PositiveInfinity);
       }
       else
@@ -1565,6 +1486,9 @@ namespace Newtonsoft.Json
     {
       if (MatchValueWithTrailingSeperator(JsonConvert.NaN))
       {
+        if (_floatParseHandling == FloatParseHandling.Decimal)
+          throw new JsonReaderException("Cannot read NaN as a decimal.");
+
         SetToken(JsonToken.Float, double.NaN);
       }
       else

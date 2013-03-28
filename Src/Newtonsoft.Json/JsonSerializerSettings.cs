@@ -52,17 +52,26 @@ namespace Newtonsoft.Json
     internal const DateFormatHandling DefaultDateFormatHandling = DateFormatHandling.IsoDateFormat;
     internal const DateTimeZoneHandling DefaultDateTimeZoneHandling = DateTimeZoneHandling.RoundtripKind;
     internal const DateParseHandling DefaultDateParseHandling = DateParseHandling.DateTime;
+    internal const FloatParseHandling DefaultFloatParseHandling = FloatParseHandling.Double;
+    internal const FloatFormatHandling DefaultFloatFormatHandling = FloatFormatHandling.String;
+    internal const StringEscapeHandling DefaultStringEscapeHandling = StringEscapeHandling.Default;
     internal static readonly CultureInfo DefaultCulture;
     internal const bool DefaultCheckAdditionalContent = false;
+    internal const string DefaultDateFormatString = @"yyyy'-'MM'-'dd'T'HH':'mm':'ss.FFFFFFFK";
 
     internal Formatting? _formatting;
     internal DateFormatHandling? _dateFormatHandling;
     internal DateTimeZoneHandling? _dateTimeZoneHandling;
     internal DateParseHandling? _dateParseHandling;
+    internal FloatFormatHandling? _floatFormatHandling;
+    internal FloatParseHandling? _floatParseHandling;
+    internal StringEscapeHandling? _stringEscapeHandling;
     internal CultureInfo _culture;
     internal bool? _checkAdditionalContent;
     internal int? _maxDepth;
     internal bool _maxDepthSet;
+    internal string _dateFormatString;
+    internal bool _dateFormatStringSet;
 
     /// <summary>
     /// Gets or sets how reference loops (e.g. a class referencing itself) is handled.
@@ -138,6 +147,12 @@ namespace Newtonsoft.Json
     public IReferenceResolver ReferenceResolver { get; set; }
 
     /// <summary>
+    /// Gets or sets the <see cref="ITraceWriter"/> used by the serializer when writing trace messages.
+    /// </summary>
+    /// <value>The trace writer.</value>
+    public ITraceWriter TraceWriter { get; set; }
+
+    /// <summary>
     /// Gets or sets the <see cref="SerializationBinder"/> used by the serializer when resolving type names.
     /// </summary>
     /// <value>The binder.</value>
@@ -154,6 +169,19 @@ namespace Newtonsoft.Json
     /// </summary>
     /// <value>The context.</value>
     public StreamingContext Context { get; set; }
+
+    /// <summary>
+    /// Get or set how <see cref="DateTime"/> and <see cref="DateTimeOffset"/> values are formatting when writing JSON text.
+    /// </summary>
+    public string DateFormatString
+    {
+      get { return _dateFormatString ?? DefaultDateFormatString; }
+      set
+      {
+        _dateFormatString = value;
+        _dateFormatStringSet = true;
+      }
+    }
 
     /// <summary>
     /// Gets or sets the maximum depth allowed when reading JSON. Reading past this depth will throw a <see cref="JsonReaderException"/>.
@@ -205,6 +233,35 @@ namespace Newtonsoft.Json
     {
       get { return _dateParseHandling ?? DefaultDateParseHandling; }
       set { _dateParseHandling = value; }
+    }
+
+    /// <summary>
+    /// Get or set how special floating point numbers, e.g. <see cref="F:System.Double.NaN"/>,
+    /// <see cref="F:System.Double.PositiveInfinity"/> and <see cref="F:System.Double.NegativeInfinity"/>,
+    /// are written as JSON.
+    /// </summary>
+    public FloatFormatHandling FloatFormatHandling
+    {
+      get { return _floatFormatHandling ?? DefaultFloatFormatHandling; }
+      set { _floatFormatHandling = value; }
+    }
+
+    /// <summary>
+    /// Get or set how floating point numbers, e.g. 1.0 and 9.9, are parsed when reading JSON text.
+    /// </summary>
+    public FloatParseHandling FloatParseHandling
+    {
+      get { return _floatParseHandling ?? DefaultFloatParseHandling; }
+      set { _floatParseHandling = value; }
+    }
+
+    /// <summary>
+    /// Get or set how strings are escaped when writing JSON text.
+    /// </summary>
+    public StringEscapeHandling StringEscapeHandling
+    {
+      get { return _stringEscapeHandling ?? DefaultStringEscapeHandling; }
+      set { _stringEscapeHandling = value; }
     }
 
     /// <summary>

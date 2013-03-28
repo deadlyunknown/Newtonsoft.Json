@@ -27,7 +27,7 @@ using System;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.Serialization;
-#if !(SILVERLIGHT || PocketPC || NET20 || NET35 || NETFX_CORE || PORTABLE)
+#if !(SILVERLIGHT || NET20 || NET35 || NETFX_CORE || PORTABLE)
 using System.Runtime.Serialization.Json;
 #endif
 using System.Text;
@@ -46,6 +46,33 @@ namespace Newtonsoft.Json.Tests.Serialization
   [TestFixture]
   public class DefaultValueHandlingTests : TestFixtureBase
   {
+    [Test]
+    public void Include()
+    {
+      Invoice invoice = new Invoice
+      {
+        Company = "Acme Ltd.",
+        Amount = 50.0m,
+        Paid = false,
+        FollowUpDays = 30,
+        FollowUpEmailAddress = string.Empty,
+        PaidDate = null
+      };
+
+      string included = JsonConvert.SerializeObject(invoice,
+        Formatting.Indented,
+        new JsonSerializerSettings { DefaultValueHandling = DefaultValueHandling.Include });
+
+      Assert.AreEqual(@"{
+  ""Company"": ""Acme Ltd."",
+  ""Amount"": 50.0,
+  ""Paid"": false,
+  ""PaidDate"": null,
+  ""FollowUpDays"": 30,
+  ""FollowUpEmailAddress"": """"
+}", included);
+    }
+
     [Test]
     public void SerializeInvoice()
     {
@@ -182,7 +209,7 @@ namespace Newtonsoft.Json.Tests.Serialization
     {
       EmitDefaultValueClass c = new EmitDefaultValueClass();
 
-#if !(SILVERLIGHT || PocketPC || NET20 || NET35 || NETFX_CORE || PORTABLE)
+#if !(SILVERLIGHT || NET20 || NET35 || NETFX_CORE || PORTABLE)
       DataContractJsonSerializer jsonSerializer = new DataContractJsonSerializer(typeof(EmitDefaultValueClass));
 
       MemoryStream ms = new MemoryStream();

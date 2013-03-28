@@ -25,6 +25,9 @@
 
 using System;
 using System.Globalization;
+#if !(NET20 || NET35 || SILVERLIGHT || PORTABLE)
+using System.Numerics;
+#endif
 using System.Text;
 #if !NETFX_CORE
 using NUnit.Framework;
@@ -92,7 +95,56 @@ namespace Newtonsoft.Json.Tests.Bson
     }
 
     [Test]
-    public void WriteValues()
+    public void ReadDouble()
+    {
+      byte[] data = MiscellaneousUtils.HexToBytes("10-00-00-00-01-30-00-8F-C2-F5-28-5C-FF-58-40-00");
+
+      MemoryStream ms = new MemoryStream(data);
+      BsonReader reader = new BsonReader(ms);
+      reader.ReadRootValueAsArray = true;
+
+      Assert.IsTrue(reader.Read());
+      Assert.AreEqual(JsonToken.StartArray, reader.TokenType);
+
+      Assert.IsTrue(reader.Read());
+      Assert.AreEqual(JsonToken.Float, reader.TokenType);
+      Assert.AreEqual(99.99d, reader.Value);
+      Assert.AreEqual(typeof(double), reader.ValueType);
+
+      Assert.IsTrue(reader.Read());
+      Assert.AreEqual(JsonToken.EndArray, reader.TokenType);
+
+      Assert.IsFalse(reader.Read());
+      Assert.AreEqual(JsonToken.None, reader.TokenType);
+    }
+
+    [Test]
+    public void ReadDouble_Decimal()
+    {
+      byte[] data = MiscellaneousUtils.HexToBytes("10-00-00-00-01-30-00-8F-C2-F5-28-5C-FF-58-40-00");
+
+      MemoryStream ms = new MemoryStream(data);
+      BsonReader reader = new BsonReader(ms);
+      reader.FloatParseHandling = FloatParseHandling.Decimal;
+      reader.ReadRootValueAsArray = true;
+
+      Assert.IsTrue(reader.Read());
+      Assert.AreEqual(JsonToken.StartArray, reader.TokenType);
+
+      Assert.IsTrue(reader.Read());
+      Assert.AreEqual(JsonToken.Float, reader.TokenType);
+      Assert.AreEqual(99.99m, reader.Value);
+      Assert.AreEqual(typeof(decimal), reader.ValueType);
+
+      Assert.IsTrue(reader.Read());
+      Assert.AreEqual(JsonToken.EndArray, reader.TokenType);
+
+      Assert.IsFalse(reader.Read());
+      Assert.AreEqual(JsonToken.None, reader.TokenType);
+    }
+
+    [Test]
+    public void ReadValues()
     {
       byte[] data = MiscellaneousUtils.HexToBytes("8C-00-00-00-12-30-00-FF-FF-FF-FF-FF-FF-FF-7F-12-31-00-FF-FF-FF-FF-FF-FF-FF-7F-10-32-00-FF-FF-FF-7F-10-33-00-FF-FF-FF-7F-10-34-00-FF-00-00-00-10-35-00-7F-00-00-00-02-36-00-02-00-00-00-61-00-01-37-00-00-00-00-00-00-00-F0-45-01-38-00-FF-FF-FF-FF-FF-FF-EF-7F-01-39-00-00-00-00-E0-FF-FF-EF-47-08-31-30-00-01-05-31-31-00-05-00-00-00-02-00-01-02-03-04-09-31-32-00-40-C5-E2-BA-E3-00-00-00-09-31-33-00-40-C5-E2-BA-E3-00-00-00-00");
       MemoryStream ms = new MemoryStream(data);
@@ -180,7 +232,6 @@ namespace Newtonsoft.Json.Tests.Bson
       Assert.IsFalse(reader.Read());
       Assert.AreEqual(JsonToken.None, reader.TokenType);
     }
-
 
     [Test]
     public void ReadObjectBsonFromSite()
@@ -1311,6 +1362,30 @@ namespace Newtonsoft.Json.Tests.Bson
       JObject o = JObject.Load(new BsonReader(memoryStream));
 
       Assert.AreEqual(badText, (string)o["test"]);
+    }
+#endif
+
+#if !(NET20 || NET35 || SILVERLIGHT || PORTABLE)
+    public class BigIntegerTestClass
+    {
+      public BigInteger Blah { get; set; }
+    }
+
+    [Test]
+    public void WriteBigInteger()
+    {
+      BigInteger i = BigInteger.Parse("1999999999999999999999999999999999999999999999999999999999990");
+
+      byte[] data = MiscellaneousUtils.HexToBytes("2A-00-00-00-05-42-6C-61-68-00-1A-00-00-00-00-F6-FF-FF-FF-FF-FF-FF-1F-B2-21-CB-28-59-84-C4-AE-03-8A-44-34-2F-4C-4E-9E-3E-01-00");
+      MemoryStream ms = new MemoryStream(data);
+
+      BsonReader reader = new BsonReader(ms);
+
+      JsonSerializer serializer = new JsonSerializer();
+
+      BigIntegerTestClass c = serializer.Deserialize<BigIntegerTestClass>(reader);
+
+      Assert.AreEqual(i, c.Blah);
     }
 #endif
   }

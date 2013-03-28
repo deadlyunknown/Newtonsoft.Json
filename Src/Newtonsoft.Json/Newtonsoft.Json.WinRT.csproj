@@ -136,7 +136,9 @@
     <Compile Include="DateFormatHandling.cs" />
     <Compile Include="DateParseHandling.cs" />
     <Compile Include="DateTimeZoneHandling.cs" />
+    <Compile Include="FloatFormatHandling.cs" />
     <Compile Include="DefaultValueHandling.cs" />
+    <Compile Include="FloatParseHandling.cs" />
     <Compile Include="FormatterAssemblyStyle.cs" />
     <Compile Include="Formatting.cs" />
     <Compile Include="IJsonLineInfo.cs" />
@@ -217,6 +219,7 @@
     <Compile Include="Serialization\ErrorEventArgs.cs" />
     <Compile Include="Serialization\IContractResolver.cs" />
     <Compile Include="Serialization\IReferenceResolver.cs" />
+    <Compile Include="Serialization\ITraceWriter.cs" />
     <Compile Include="Serialization\IValueProvider.cs" />
     <Compile Include="Serialization\JsonArrayContract.cs" />
     <Compile Include="Serialization\JsonContainerContract.cs" />
@@ -240,7 +243,11 @@
     <Compile Include="Serialization\ObjectConstructor.cs" />
     <Compile Include="Serialization\OnErrorAttribute.cs" />
     <Compile Include="Serialization\ReflectionValueProvider.cs" />
+    <Compile Include="Serialization\DiagnosticsTraceWriter.cs" />
+    <Compile Include="Serialization\MemoryTraceWriter.cs" />
     <Compile Include="StreamingContext.cs" />
+    <Compile Include="StringEscapeHandling.cs" />
+    <Compile Include="TraceLevel.cs" />
     <Compile Include="TypeNameHandling.cs" />
     <Compile Include="Utilities\Base64Encoder.cs" />
     <Compile Include="Utilities\BidirectionalDictionary.cs" />

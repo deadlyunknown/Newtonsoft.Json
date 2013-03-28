@@ -27,6 +27,10 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
+#if !(NET20 || NET35 || SILVERLIGHT || PORTABLE)
+using System.Numerics;
+#endif
+using Newtonsoft.Json.Serialization;
 using Newtonsoft.Json.Tests.TestObjects;
 #if !NETFX_CORE
 using NUnit.Framework;
@@ -38,7 +42,7 @@ using Test = Microsoft.VisualStudio.TestPlatform.UnitTestFramework.TestMethodAtt
 using Newtonsoft.Json.Linq;
 using System.IO;
 using System.Collections;
-#if !PocketPC && !SILVERLIGHT && !NETFX_CORE
+#if !SILVERLIGHT && !NETFX_CORE
 using System.Web.UI;
 #endif
 #if NET20
@@ -1441,7 +1445,8 @@ Parameter name: arrayIndex",
       Assert.AreEqual(2, (int)o["Test1"]);
     }
 #endif
-#if SILVERLIGHT || !(NET20 || NET35 || PORTABLE)
+
+#if SILVERLIGHT || !(NET20 || NET35)
     [Test]
     public void CollectionChanged()
     {
@@ -1627,17 +1632,17 @@ Parameter name: arrayIndex",
       });
     }
 
+#if !(NET20 || NET35 || SILVERLIGHT || PORTABLE)
     [Test]
     public void NumberTooBigForInt64()
     {
-      ExceptionAssert.Throws<JsonReaderException>("JSON integer 307953220000517141511 is too large or small for an Int64. Path 'code', line 1, position 30.",
-        () =>
-        {
-          string json = @"{""code"": 307953220000517141511}";
+      string json = @"{""code"": 307953220000517141511}";
 
-          JObject.Parse(json);
-        });
+      JObject o = JObject.Parse(json);
+
+      BigInteger b = (BigInteger)o["code"];
     }
+#endif
 
     [Test]
     public void ParseIncomplete()
@@ -1742,6 +1747,7 @@ Parameter name: arrayIndex",
       Assert.AreEqual(false, prop4.ShouldSerializeValue(o));
     }
 #endif
+
     [Test]
     public void ParseEmptyObjectWithComment()
     {
@@ -1882,6 +1888,24 @@ Parameter name: arrayIndex",
     }
 
     [Test]
+    public void GetValueBlogExample()
+    {
+      JObject o = JObject.Parse(@"{
+        'name': 'Lower',
+        'NAME': 'Upper'
+      }");
+
+      string exactMatch = (string)o.GetValue("NAME", StringComparison.OrdinalIgnoreCase);
+      // Upper
+
+      string ignoreCase = (string)o.GetValue("Name", StringComparison.OrdinalIgnoreCase);
+      // Lower
+
+      Assert.AreEqual("Upper", exactMatch);
+      Assert.AreEqual("Lower", ignoreCase);
+    }
+
+    [Test]
     public void GetValue()
     {
       JObject a = new JObject();
@@ -1911,6 +1935,59 @@ Parameter name: arrayIndex",
       Assert.AreEqual("name!", (string)v);
 
       Assert.IsFalse(a.TryGetValue(null, StringComparison.Ordinal, out v));
+    }
+
+    public class FooJsonConverter : JsonConverter
+    {
+      public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+      {
+        var token = JToken.FromObject(value, new JsonSerializer
+          {
+            ContractResolver = new CamelCasePropertyNamesContractResolver()
+          });
+        if (token.Type == JTokenType.Object)
+        {
+          var o = (JObject)token;
+          o.AddFirst(new JProperty("foo", "bar"));
+          o.WriteTo(writer);
+        }
+        else
+          token.WriteTo(writer);
+      }
+
+      public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
+      {
+        throw new NotSupportedException("This custom converter only supportes serialization and not deserialization.");
+      }
+
+      public override bool CanRead
+      {
+        get { return false; }
+      }
+
+      public override bool CanConvert(Type objectType)
+      {
+        return true;
+      }
+    }
+
+    [Test]
+    public void FromObjectInsideConverterWithCustomSerializer()
+    {
+      var p = new Person
+      {
+        Name = "Daniel Wertheim",
+      };
+
+      var settings = new JsonSerializerSettings
+      {
+        Converters = new List<JsonConverter> { new FooJsonConverter() },
+        ContractResolver = new CamelCasePropertyNamesContractResolver()
+      };
+
+      var json = JsonConvert.SerializeObject(p, settings);
+
+      Assert.AreEqual(@"{""foo"":""bar"",""name"":""Daniel Wertheim"",""birthDate"":""0001-01-01T00:00:00"",""lastModified"":""0001-01-01T00:00:00""}", json);
     }
   }
 }

@@ -24,11 +24,14 @@
 #endregion
 
 using System;
-#if !(NET35 || NET20 || SILVERLIGHT || WINDOWS_PHONE)
+#if !(NET35 || NET20 || SILVERLIGHT)
 using System.Collections.Concurrent;
 #endif
 using System.Collections.Generic;
-#if !SILVERLIGHT && !PocketPC && !NET20 && !NETFX_CORE
+#if !(NET20 || NET35 || SILVERLIGHT || PORTABLE)
+using System.Numerics;
+#endif
+#if !SILVERLIGHT && !NET20 && !NETFX_CORE
 using System.ComponentModel.DataAnnotations;
 using System.Configuration;
 using System.Runtime.CompilerServices;
@@ -53,7 +56,7 @@ using System.Collections.ObjectModel;
 using Newtonsoft.Json.Bson;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Converters;
-#if !PocketPC && !NET20 && !WINDOWS_PHONE
+#if !NET20
 using System.Runtime.Serialization.Json;
 #endif
 using Newtonsoft.Json.Serialization;
@@ -69,7 +72,7 @@ using System.Text.RegularExpressions;
 using System.Collections.Specialized;
 using System.Linq.Expressions;
 #endif
-#if !(NET35 || NET20 || WINDOWS_PHONE)
+#if !(NET35 || NET20)
 using System.Dynamic;
 using System.ComponentModel;
 #endif
@@ -87,6 +90,40 @@ namespace Newtonsoft.Json.Tests.Serialization
   [TestFixture]
   public class JsonSerializerTest : TestFixtureBase
   {
+    //[DataContract]
+    //public class BaseDataContract1
+    //{
+    //  [DataMember(Name = "virtualMember")]
+    //  public virtual string VirtualMember { get; set; }
+
+    //  [DataMember(Name = "nonVirtualMember")]
+    //  public string NonVirtualMember { get; set; }
+
+    //  public virtual object NewMember { get; set; }
+    //}
+
+    //public class ChildDataContract1 : BaseDataContract1
+    //{
+    //  [DataMember(Name = "NewMember")]
+    //  public virtual new string NewMember { get; set; }
+    //  public override string VirtualMember { get; set; }
+    //  public string AddedMember { get; set; }
+    //}
+
+    //[Test]
+    //public void ChildDataContractTest1()
+    //{
+    //  var cc = new ChildDataContract1
+    //  {
+    //    VirtualMember = "VirtualMember!",
+    //    NonVirtualMember = "NonVirtualMember!",
+    //    NewMember = "NewMember!"
+    //  };
+
+    //  string result = JsonConvert.SerializeObject(cc);
+    //  Assert.AreEqual(@"{""NewMember"":""NewMember!"",""virtualMember"":""VirtualMember!"",""nonVirtualMember"":""NonVirtualMember!""}", result);
+    //}
+
     [Test]
     public void PersonTypedObjectDeserialization()
     {
@@ -173,7 +210,7 @@ namespace Newtonsoft.Json.Tests.Serialization
 
       string jsonText = JsonConvert.SerializeObject(testDictionary);
 
-#if !PocketPC && !NET20 && !WINDOWS_PHONE
+#if !NET20
       MemoryStream ms = new MemoryStream();
       DataContractJsonSerializer serializer = new DataContractJsonSerializer(typeof(Dictionary<string, object>));
       serializer.WriteObject(ms, testDictionary);
@@ -432,7 +469,7 @@ keyword such as type of business.""
       CollectionAssert.AreEqual(r1, r2);
     }
 
-#if !PocketPC && !NET20 && !WINDOWS_PHONE
+#if !NET20
     [Test]
     public void Unicode()
     {
@@ -578,6 +615,30 @@ keyword such as type of business.""
       Assert.AreEqual(1, anonymous.NestedArray[0]);
       Assert.AreEqual(2, anonymous.NestedArray[1]);
       Assert.AreEqual("TestProduct", anonymous.Product.Name);
+    }
+
+    [Test]
+    public void AnonymousObjectSerializationWithSetting()
+    {
+      DateTime d = new DateTime(2000, 1, 1);
+
+      var anonymous =
+        new
+        {
+          DateValue = d
+        };
+
+      JsonSerializerSettings settings = new JsonSerializerSettings();
+      settings.Converters.Add(new IsoDateTimeConverter
+        {
+          DateTimeFormat = "yyyy"
+        });
+
+      string json = JsonConvert.SerializeObject(anonymous, settings);
+      Assert.AreEqual(@"{""DateValue"":""2000""}", json);
+
+      anonymous = JsonConvert.DeserializeAnonymousType(json, anonymous, settings);
+      Assert.AreEqual(d, anonymous.DateValue);
     }
 
     [Test]
@@ -1595,7 +1656,7 @@ keyword such as type of business.""
     }
 #endif
 
-#if !PocketPC && !NET20
+#if !NET20
     [DataContract]
     public class DataContractPrivateMembers
     {
@@ -1982,7 +2043,7 @@ keyword such as type of business.""
       Assert.AreEqual("Product 1", products[0].Name);
     }
 
-#if !PocketPC && !NET20
+#if !NET20
     [Test]
     public void DeserializeEmptyStringToNullableDateTime()
     {
@@ -2099,7 +2160,7 @@ Path '', line 1, position 1.",
         });
     }
 
-#if !(NET35 || NET20 || WINDOWS_PHONE || PORTABLE)
+#if !(NET35 || NET20)
     [Test]
     public void CannotDeserializeArrayIntoDynamic()
     {
@@ -2759,7 +2820,7 @@ Path '', line 1, position 2.",
       public string Ethnicity { get; set; }
     }
 
-#if !NET20 && !PocketPC && !WINDOWS_PHONE
+#if !NET20
     public class DataContractJsonSerializerTestClass
     {
       public TimeSpan TimeSpanProperty { get; set; }
@@ -3430,7 +3491,7 @@ To fix this error either change the environment to be fully trusted, change the 
     }
 #endif
 
-#if !(NET20 || SILVERLIGHT || PORTABLE)
+#if !(NET20 || SILVERLIGHT)
     [Test]
     public void SerializeDeserializeXNodeProperties()
     {
@@ -3847,22 +3908,19 @@ To fix this error either change the environment to be fully trusted, change the 
       Assert.AreEqual(null, cc.Ignored);
     }
 
-    public class ShouldSerializeTestClass
+    [Test]
+    public void DeserializeFloatAsDecimal()
     {
-      internal bool _shouldSerializeName;
+      string json = @"{'value':9.9}";
 
-      public string Name { get; set; }
-      public int Age { get; set; }
+      var dic = JsonConvert.DeserializeObject<IDictionary<string, object>>(
+        json, new JsonSerializerSettings
+                {
+                  FloatParseHandling = FloatParseHandling.Decimal
+                });
 
-      public void ShouldSerializeAge()
-      {
-        // dummy. should never be used because it doesn't return bool
-      }
-
-      public bool ShouldSerializeName()
-      {
-        return _shouldSerializeName;
-      }
+      Assert.AreEqual(typeof(decimal), dic["value"].GetType());
+      Assert.AreEqual(9.9d, dic["value"]);
     }
 
     [Test]
@@ -3927,43 +3985,6 @@ To fix this error either change the environment to be fully trusted, change the 
       // ]
 
       Console.WriteLine(json);
-    }
-
-    public class SpecifiedTestClass
-    {
-      private bool _nameSpecified;
-
-      public string Name { get; set; }
-      public int Age { get; set; }
-      public int Weight { get; set; }
-      public int Height { get; set; }
-      public int FavoriteNumber { get; set; }
-
-      // dummy. should never be used because it isn't of type bool
-      [JsonIgnore]
-      public long AgeSpecified { get; set; }
-
-      [JsonIgnore]
-      public bool NameSpecified
-      {
-        get { return _nameSpecified; }
-        set { _nameSpecified = value; }
-      }
-
-      [JsonIgnore]
-      public bool WeightSpecified;
-
-      [JsonIgnore]
-      [System.Xml.Serialization.XmlIgnoreAttribute]
-      public bool HeightSpecified;
-
-      [JsonIgnore]
-
-      public bool FavoriteNumberSpecified
-      {
-        // get only example
-        get { return FavoriteNumber != 0; }
-      }
     }
 
     [Test]
@@ -4163,7 +4184,7 @@ To fix this error either change the environment to be fully trusted, change the 
       Assert.AreEqual(null, d[2]);
     }
 
-#if !SILVERLIGHT && !NET20 && !PocketPC
+#if !SILVERLIGHT && !NET20
     [Test]
     public void SerializeHashSet()
     {
@@ -4216,7 +4237,7 @@ To fix this error either change the environment to be fully trusted, change the 
       Assert.AreEqual(0, z[1].Prop1.Length);
     }
 
-#if !NET20 && !PocketPC && !SILVERLIGHT && !NETFX_CORE
+#if !NET20 && !SILVERLIGHT && !NETFX_CORE
     public class StringDictionaryTestClass
     {
       public StringDictionary StringDictionaryProperty { get; set; }
@@ -4349,7 +4370,7 @@ To fix this error either change the environment to be fully trusted, change the 
 }", json);
     }
 
-#if !(NET35 || NET20 || WINDOWS_PHONE || PORTABLE)
+#if !(NET35 || NET20)
     [Test]
     public void SerializeExpandoObject()
     {
@@ -4511,7 +4532,7 @@ To fix this error either change the environment to be fully trusted, change the 
       Assert.AreEqual(meh.IDontWork, "meh");
     }
 
-#if !(SILVERLIGHT || PocketPC || NET20 || NETFX_CORE)
+#if !(SILVERLIGHT || NET20 || NETFX_CORE)
     [DataContract]
     public struct StructISerializable : ISerializable
     {
@@ -4935,7 +4956,7 @@ To fix this error either change the environment to be fully trusted, change the 
       JsonConvert.DeserializeObject<EnumerableArrayPropertyClass>(json);
     }
 
-#if !NET20
+#if !(NET20 || SILVERLIGHT)
     [DataContract]
     public class BaseDataContract
     {
@@ -4956,13 +4977,38 @@ To fix this error either change the environment to be fully trusted, change the 
     public void ChildDataContractTest()
     {
       ChildDataContract cc = new ChildDataContract
+      {
+        VirtualMember = "VirtualMember!",
+        NonVirtualMember = "NonVirtualMember!"
+      };
+
+      string result = JsonConvert.SerializeObject(cc, Formatting.Indented);
+//      Assert.AreEqual(@"{
+//  ""VirtualMember"": ""VirtualMember!"",
+//  ""NewMember"": null,
+//  ""nonVirtualMember"": ""NonVirtualMember!""
+//}", result);
+
+      Console.WriteLine(result);
+    }
+
+    [Test]
+    public void ChildDataContractTestWithDataContractSerializer()
+    {
+      ChildDataContract cc = new ChildDataContract
         {
           VirtualMember = "VirtualMember!",
           NonVirtualMember = "NonVirtualMember!"
         };
 
-      string result = JsonConvert.SerializeObject(cc);
-      Assert.AreEqual(@"{""virtualMember"":""VirtualMember!"",""nonVirtualMember"":""NonVirtualMember!""}", result);
+      DataContractSerializer serializer = new DataContractSerializer(typeof(ChildDataContract));
+
+      MemoryStream ms = new MemoryStream();
+      serializer.WriteObject(ms, cc);
+
+      string xml = Encoding.UTF8.GetString(ms.ToArray(), 0, Convert.ToInt32(ms.Length));
+
+      Console.WriteLine(xml);
     }
 #endif
 
@@ -6257,6 +6303,106 @@ Parameter name: value",
       Assert.AreEqual(@"{""Data"":["":::ONE:::"","":::TWO:::"","":::THREE:::""]}", json);
     }
 
+#if !NET20
+    [Test]
+    public void DateTimeDictionaryKey_DateTimeOffset_Iso()
+    {
+      IDictionary<DateTimeOffset, int> dic1 = new Dictionary<DateTimeOffset, int>
+        {
+          {new DateTimeOffset(2000, 12, 12, 12, 12, 12, TimeSpan.Zero), 1},
+          {new DateTimeOffset(2013, 12, 12, 12, 12, 12, TimeSpan.Zero), 2}
+        };
+
+      string json = JsonConvert.SerializeObject(dic1, Formatting.Indented);
+
+      Assert.AreEqual(@"{
+  ""2000-12-12T12:12:12+00:00"": 1,
+  ""2013-12-12T12:12:12+00:00"": 2
+}", json);
+
+      IDictionary<DateTimeOffset, int> dic2 = JsonConvert.DeserializeObject<IDictionary<DateTimeOffset, int>>(json);
+
+      Assert.AreEqual(2, dic2.Count);
+      Assert.AreEqual(1, dic2[new DateTimeOffset(2000, 12, 12, 12, 12, 12, TimeSpan.Zero)]);
+      Assert.AreEqual(2, dic2[new DateTimeOffset(2013, 12, 12, 12, 12, 12, TimeSpan.Zero)]);
+    }
+
+    [Test]
+    public void DateTimeDictionaryKey_DateTimeOffset_MS()
+    {
+      IDictionary<DateTimeOffset, int> dic1 = new Dictionary<DateTimeOffset, int>
+        {
+          {new DateTimeOffset(2000, 12, 12, 12, 12, 12, TimeSpan.Zero), 1},
+          {new DateTimeOffset(2013, 12, 12, 12, 12, 12, TimeSpan.Zero), 2}
+        };
+
+      string json = JsonConvert.SerializeObject(dic1, Formatting.Indented, new JsonSerializerSettings
+        {
+          DateFormatHandling = DateFormatHandling.MicrosoftDateFormat
+        });
+
+      Assert.AreEqual(@"{
+  ""\/Date(976623132000+0000)\/"": 1,
+  ""\/Date(1386850332000+0000)\/"": 2
+}", json);
+
+      IDictionary<DateTimeOffset, int> dic2 = JsonConvert.DeserializeObject<IDictionary<DateTimeOffset, int>>(json);
+
+      Assert.AreEqual(2, dic2.Count);
+      Assert.AreEqual(1, dic2[new DateTimeOffset(2000, 12, 12, 12, 12, 12, TimeSpan.Zero)]);
+      Assert.AreEqual(2, dic2[new DateTimeOffset(2013, 12, 12, 12, 12, 12, TimeSpan.Zero)]);
+    }
+#endif
+
+    [Test]
+    public void DateTimeDictionaryKey_DateTime_Iso()
+    {
+      IDictionary<DateTime, int> dic1 = new Dictionary<DateTime, int>
+        {
+          {new DateTime(2000, 12, 12, 12, 12, 12, DateTimeKind.Utc), 1},
+          {new DateTime(2013, 12, 12, 12, 12, 12, DateTimeKind.Utc), 2}
+        };
+
+      string json = JsonConvert.SerializeObject(dic1, Formatting.Indented);
+
+      Assert.AreEqual(@"{
+  ""2000-12-12T12:12:12Z"": 1,
+  ""2013-12-12T12:12:12Z"": 2
+}", json);
+
+      IDictionary<DateTime, int> dic2 = JsonConvert.DeserializeObject<IDictionary<DateTime, int>>(json);
+
+      Assert.AreEqual(2, dic2.Count);
+      Assert.AreEqual(1, dic2[new DateTime(2000, 12, 12, 12, 12, 12, DateTimeKind.Utc)]);
+      Assert.AreEqual(2, dic2[new DateTime(2013, 12, 12, 12, 12, 12, DateTimeKind.Utc)]);
+    }
+
+    [Test]
+    public void DateTimeDictionaryKey_DateTime_MS()
+    {
+      IDictionary<DateTime, int> dic1 = new Dictionary<DateTime, int>
+        {
+          {new DateTime(2000, 12, 12, 12, 12, 12, DateTimeKind.Utc), 1},
+          {new DateTime(2013, 12, 12, 12, 12, 12, DateTimeKind.Utc), 2}
+        };
+
+      string json = JsonConvert.SerializeObject(dic1, Formatting.Indented, new JsonSerializerSettings
+      {
+        DateFormatHandling = DateFormatHandling.MicrosoftDateFormat
+      });
+
+      Assert.AreEqual(@"{
+  ""\/Date(976623132000)\/"": 1,
+  ""\/Date(1386850332000)\/"": 2
+}", json);
+
+      IDictionary<DateTime, int> dic2 = JsonConvert.DeserializeObject<IDictionary<DateTime, int>>(json);
+
+      Assert.AreEqual(2, dic2.Count);
+      Assert.AreEqual(1, dic2[new DateTime(2000, 12, 12, 12, 12, 12, DateTimeKind.Utc)]);
+      Assert.AreEqual(2, dic2[new DateTime(2013, 12, 12, 12, 12, 12, DateTimeKind.Utc)]);
+    }
+
     [Test]
     public void DeserializeEmptyJsonString()
     {
@@ -6354,6 +6500,21 @@ Parameter name: value",
     }
 
 #if !(NET20 || NET35)
+    public class IgnoreDataMemberTestClass
+    {
+      [IgnoreDataMember]
+      public int Ignored { get; set; }
+    }
+
+    [Test]
+    public void IgnoreDataMemberTest()
+    {
+      string json = JsonConvert.SerializeObject(new IgnoreDataMemberTestClass() { Ignored = int.MaxValue }, Formatting.Indented);
+      Assert.AreEqual(@"{}", json);
+    }
+#endif
+
+#if !(NET20 || NET35)
     [Test]
     public void SerializeDataContractSerializationAttributes()
     {
@@ -6364,6 +6525,12 @@ Parameter name: value",
           DataMemberAttribute = "Value!",
           IgnoreDataMemberAndDataMemberAttribute = "Value!"
         };
+
+      //MemoryStream ms = new MemoryStream();
+      //DataContractJsonSerializer serializer = new DataContractJsonSerializer(typeof(DataContractSerializationAttributesClass));
+      //serializer.WriteObject(ms, dataContract);
+
+      //Console.WriteLine(Encoding.UTF8.GetString(ms.ToArray()));
 
       string json = JsonConvert.SerializeObject(dataContract, Formatting.Indented);
       Assert.AreEqual(@"{
@@ -6544,6 +6711,43 @@ Parameter name: value",
 }", json);
     }
 
+    public class EnumerableClass<T> : IEnumerable<T>
+    {
+      private readonly IList<T> _values;
+ 
+      public EnumerableClass(IEnumerable<T> values)
+      {
+        _values = new List<T>(values);
+      }
+
+      public IEnumerator<T> GetEnumerator()
+      {
+        return _values.GetEnumerator();
+      }
+
+      IEnumerator IEnumerable.GetEnumerator()
+      {
+        return GetEnumerator();
+      }
+    }
+
+    [Test]
+    public void DeserializeIEnumerableFromConstructor()
+    {
+      string json = @"[
+  ""One"",
+  ""II"",
+  ""3""
+]";
+
+      var result = JsonConvert.DeserializeObject<EnumerableClass<string>>(json);
+
+      Assert.AreEqual(3, result.Count());
+      Assert.AreEqual("One", result.ElementAt(0));
+      Assert.AreEqual("II", result.ElementAt(1));
+      Assert.AreEqual("3", result.ElementAt(2));
+    }
+
     [JsonObject(MemberSerialization.Fields)]
     public class MyTuple<T1>
     {
@@ -6575,6 +6779,41 @@ Parameter name: value",
         get { return m_Item1; }
       }
     }
+
+    [Test]
+    public void SerializeFloatingPointHandling()
+    {
+      string json;
+      IList<double> d = new List<double> {1.1, double.NaN, double.PositiveInfinity};
+
+      json = JsonConvert.SerializeObject(d);
+      // [1.1,"NaN","Infinity"]
+
+      json = JsonConvert.SerializeObject(d, new JsonSerializerSettings { FloatFormatHandling = FloatFormatHandling.Symbol });
+      // [1.1,NaN,Infinity]
+
+      json = JsonConvert.SerializeObject(d, new JsonSerializerSettings {FloatFormatHandling = FloatFormatHandling.DefaultValue});
+      // [1.1,0.0,0.0]
+
+      Assert.AreEqual("[1.1,0.0,0.0]", json);
+    }
+
+#if !(NET20 || NET35 || NET40 || PORTABLE || SILVERLIGHT)
+    [Test]
+    public void DeserializeReadOnlyListWithBigInteger()
+    {
+      string json = @"[
+        9000000000000000000000000000000000000000000000000
+      ]";
+
+      var l = JsonConvert.DeserializeObject<IReadOnlyList<BigInteger>>(json);
+
+      BigInteger nineQuindecillion = l[0];
+      // 9000000000000000000000000000000000000000000000000
+
+      Assert.AreEqual(BigInteger.Parse("9000000000000000000000000000000000000000000000000"), nineQuindecillion);
+    }
+#endif
 
     [Test]
     public void SerializeCustomTupleWithSerializableAttribute()
@@ -7178,6 +7417,201 @@ Parameter name: value",
       Assert.AreEqual(TimeSpan.FromHours(9.5), dateTimeOffset.Offset);
       Assert.AreEqual("07/19/2012 14:30:00 +09:30", dateTimeOffset.ToString(CultureInfo.InvariantCulture));
     }
+
+    public class NullableFloats
+    {
+      public object Object { get; set; }
+      public float Float { get; set; }
+      public double Double { get; set; }
+      public float? NullableFloat { get; set; }
+      public double? NullableDouble { get; set; }
+      public object ObjectNull { get; set; }
+    }
+
+    [Test]
+    public void NullableFloatingPoint()
+    {
+      NullableFloats floats = new NullableFloats
+        {
+          Object = double.NaN,
+          ObjectNull = null,
+          Float = float.NaN,
+          NullableDouble = double.NaN,
+          NullableFloat = null
+        };
+
+      string json = JsonConvert.SerializeObject(floats, Formatting.Indented, new JsonSerializerSettings
+        {
+          FloatFormatHandling = FloatFormatHandling.DefaultValue
+        });
+
+      Assert.AreEqual(@"{
+  ""Object"": 0.0,
+  ""Float"": 0.0,
+  ""Double"": 0.0,
+  ""NullableFloat"": null,
+  ""NullableDouble"": null,
+  ""ObjectNull"": null
+}", json);
+    }
+
+    [Test]
+    public void DateFormatString()
+    {
+      IList<object> dates = new List<object>
+        {
+          new DateTime(2000, 12, 12, 12, 12, 12, DateTimeKind.Utc),
+          new DateTimeOffset(2000, 12, 12, 12, 12, 12, TimeSpan.FromHours(1))
+        };
+
+      string json = JsonConvert.SerializeObject(dates, Formatting.Indented, new JsonSerializerSettings
+        {
+          DateFormatString = "yyyy tt",
+          Culture = new CultureInfo("en-NZ")
+        });
+
+      Assert.AreEqual(@"[
+  ""2000 p.m."",
+  ""2000 p.m.""
+]", json);
+    }
+
+    [Test]
+    public void DateFormatStringForInternetExplorer()
+    {
+      IList<object> dates = new List<object>
+        {
+          new DateTime(2000, 12, 12, 12, 12, 12, DateTimeKind.Utc),
+          new DateTimeOffset(2000, 12, 12, 12, 12, 12, TimeSpan.FromHours(1))
+        };
+
+      string json = JsonConvert.SerializeObject(dates, Formatting.Indented, new JsonSerializerSettings
+      {
+        DateFormatString = @"yyyy'-'MM'-'dd'T'HH':'mm':'ss.fffK"
+      });
+
+      Assert.AreEqual(@"[
+  ""2000-12-12T12:12:12.000Z"",
+  ""2000-12-12T12:12:12.000+01:00""
+]", json);
+    }
+
+    [Test]
+    public void JsonSerializerDateFormatString()
+    {
+      IList<object> dates = new List<object>
+        {
+          new DateTime(2000, 12, 12, 12, 12, 12, DateTimeKind.Utc),
+          new DateTimeOffset(2000, 12, 12, 12, 12, 12, TimeSpan.FromHours(1))
+        };
+
+      StringWriter sw = new StringWriter();
+      JsonTextWriter jsonWriter = new JsonTextWriter(sw);
+
+      JsonSerializer serializer = JsonSerializer.Create(new JsonSerializerSettings
+        {
+          DateFormatString = "yyyy tt",
+          Culture = new CultureInfo("en-NZ"),
+          Formatting = Formatting.Indented
+        });
+      serializer.Serialize(jsonWriter, dates);
+
+      Assert.IsNull(jsonWriter.DateFormatString);
+      Assert.AreEqual(CultureInfo.InvariantCulture, jsonWriter.Culture);
+      Assert.AreEqual(Formatting.None, jsonWriter.Formatting);
+
+      string json = sw.ToString();
+
+      Assert.AreEqual(@"[
+  ""2000 p.m."",
+  ""2000 p.m.""
+]", json);
+    }
+
+    [Test]
+    public void JsonSerializerStringEscapeHandling()
+    {
+      StringWriter sw = new StringWriter();
+      JsonTextWriter jsonWriter = new JsonTextWriter(sw);
+
+      JsonSerializer serializer = JsonSerializer.Create(new JsonSerializerSettings
+      {
+        StringEscapeHandling = StringEscapeHandling.EscapeHtml,
+        Formatting = Formatting.Indented
+      });
+      serializer.Serialize(jsonWriter, new { html = "<html></html>" });
+
+      Assert.AreEqual(StringEscapeHandling.Default, jsonWriter.StringEscapeHandling);
+
+      string json = sw.ToString();
+
+      Assert.AreEqual(@"{
+  ""html"": ""\u003chtml\u003e\u003c/html\u003e""
+}", json);
+    }
+
+#if !(PORTABLE || NET35 || NET20 || SILVERLIGHT)
+    [Test]
+    public void ReadTooLargeInteger()
+    {
+      string json = @"[999999999999999999999999999999999999999999999999]";
+
+      IList<BigInteger> l = JsonConvert.DeserializeObject<IList<BigInteger>>(json);
+
+      Assert.AreEqual(BigInteger.Parse("999999999999999999999999999999999999999999999999"), l[0]);
+
+      ExceptionAssert.Throws<JsonSerializationException>(
+        "Error converting value 999999999999999999999999999999999999999999999999 to type 'System.Int64'. Path '[0]', line 1, position 49.",
+        () => JsonConvert.DeserializeObject<IList<long>>(json));
+    }
+#endif
+
+    [Test]
+    public void ReadStringFloatingPointSymbols()
+    {
+      string json = @"[
+  ""NaN"",
+  ""Infinity"",
+  ""-Infinity""
+]";
+
+      IList<float> floats = JsonConvert.DeserializeObject<IList<float>>(json);
+      Assert.AreEqual(float.NaN, floats[0]);
+      Assert.AreEqual(float.PositiveInfinity, floats[1]);
+      Assert.AreEqual(float.NegativeInfinity, floats[2]);
+
+      IList<double> doubles = JsonConvert.DeserializeObject<IList<double>>(json);
+      Assert.AreEqual(float.NaN, doubles[0]);
+      Assert.AreEqual(float.PositiveInfinity, doubles[1]);
+      Assert.AreEqual(float.NegativeInfinity, doubles[2]);
+    }
+
+    [Test]
+    public void DefaultDateStringFormatVsUnsetDateStringFormat()
+    {
+      IDictionary<string, object> dates = new Dictionary<string, object>
+        {
+          {"DateTime-Unspecified", new DateTime(2000, 12, 12, 12, 12, 12, DateTimeKind.Unspecified)},
+          {"DateTime-Utc", new DateTime(2000, 12, 12, 12, 12, 12, DateTimeKind.Utc)},
+          {"DateTime-Local", new DateTime(2000, 12, 12, 12, 12, 12, DateTimeKind.Local)},
+          {"DateTimeOffset-Zero", new DateTimeOffset(2000, 12, 12, 12, 12, 12, TimeSpan.Zero)},
+          {"DateTimeOffset-Plus1", new DateTimeOffset(2000, 12, 12, 12, 12, 12, TimeSpan.FromHours(1))},
+          {"DateTimeOffset-Plus15", new DateTimeOffset(2000, 12, 12, 12, 12, 12, TimeSpan.FromHours(1.5))}
+        };
+
+      string expected = JsonConvert.SerializeObject(dates, Formatting.Indented);
+
+      Console.WriteLine(expected);
+
+      string actual = JsonConvert.SerializeObject(dates, Formatting.Indented, new JsonSerializerSettings
+        {
+          DateFormatString = JsonSerializerSettings.DefaultDateFormatString
+        });
+
+      Console.WriteLine(expected);
+
+      Assert.AreEqual(expected, actual);
+    }
 #endif
 
 #if !NET20
@@ -7209,9 +7643,339 @@ Parameter name: value",
       Assert.IsNull(c2.MyNullableDecimal);
     }
 #endif
+
+#if !(PORTABLE || NET20 || NET35)
+    [Test]
+    public void HashSetInterface()
+    {
+      ISet<string> s1 = new HashSet<string>(new[] {"1", "two", "III"});
+
+      string json = JsonConvert.SerializeObject(s1);
+
+      ISet<string> s2 = JsonConvert.DeserializeObject<ISet<string>>(json);
+
+      Assert.AreEqual(s1.Count, s2.Count);
+      foreach (string s in s1)
+      {
+        Assert.IsTrue(s2.Contains(s));
+      }
+    }
+#endif
+
+    public class NewEmployee : Employee
+    {
+        public int Age { get; set; }
+
+        public bool ShouldSerializeName()
+        {
+            return false;
+        }
+    }
+
+    [Test]
+    public void ShouldSerializeInheritedClassTest()
+    {
+      NewEmployee joe = new NewEmployee();
+      joe.Name = "Joe Employee";
+      joe.Age = 100;
+
+      Employee mike = new Employee();
+      mike.Name = "Mike Manager";
+      mike.Manager = mike;
+
+      joe.Manager = mike;
+
+      //StringWriter sw = new StringWriter();
+
+      //XmlSerializer x = new XmlSerializer(typeof(NewEmployee));
+      //x.Serialize(sw, joe);
+
+      //Console.WriteLine(sw);
+
+      //JavaScriptSerializer s = new JavaScriptSerializer();
+      //Console.WriteLine(s.Serialize(new {html = @"<script>hi</script>; & ! ^ * ( ) ! @ # $ % ^ ' "" - , . / ; : [ { } ] ; ' - _ = + ? ` ~ \ |"}));
+
+      string json = JsonConvert.SerializeObject(joe, Formatting.Indented);
+
+      Assert.AreEqual(@"{
+  ""Age"": 100,
+  ""Name"": ""Joe Employee"",
+  ""Manager"": {
+    ""Name"": ""Mike Manager""
+  }
+}", json);
+    }
+
+    [Test]
+    public void DeserializeDecimal()
+    {
+      JsonTextReader reader = new JsonTextReader(new StringReader("1234567890.123456"));
+      var settings = new JsonSerializerSettings();
+      var serialiser = JsonSerializer.Create(settings);
+      decimal? d = serialiser.Deserialize<decimal?>(reader);
+
+      Assert.AreEqual(1234567890.123456m, d);
+    }
+
+#if !(PORTABLE || SILVERLIGHT || NETFX_CORE || WINDOWS_PHONE)
+    [Test]
+    public void DontSerializeStaticFields()
+    {
+      string json =
+        JsonConvert.SerializeObject(new AnswerFilterModel(), Formatting.Indented, new JsonSerializerSettings
+          {
+            ContractResolver = new DefaultContractResolver
+              {
+                IgnoreSerializableAttribute = false
+              }
+          });
+
+      Assert.AreEqual(@"{
+  ""<Active>k__BackingField"": false,
+  ""<Ja>k__BackingField"": false,
+  ""<Handlungsbedarf>k__BackingField"": false,
+  ""<Beratungsbedarf>k__BackingField"": false,
+  ""<Unzutreffend>k__BackingField"": false,
+  ""<Unbeantwortet>k__BackingField"": false
+}", json);
+    }
+#endif
+
+#if !(NET20 || NET35 || SILVERLIGHT || PORTABLE)
+    public void SerializeBigInteger()
+    {
+      BigInteger i = BigInteger.Parse("123456789999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999990");
+
+      string json = JsonConvert.SerializeObject(new [] {i}, Formatting.Indented);
+
+      Assert.AreEqual(@"[
+  123456789999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999990
+]", json);
+    }
+#endif
+
+#if !(NET40 || NET35 || NET20 || SILVERLIGHT || WINDOWS_PHONE || PORTABLE)
+    [Test]
+    public void DeserializeReadOnlyList()
+    {
+      IReadOnlyList<int> list = JsonConvert.DeserializeObject<IReadOnlyList<int>>("[1,2,3]");
+
+      Assert.AreEqual(3, list.Count);
+      Assert.AreEqual(1, list[0]);
+      Assert.AreEqual(2, list[1]);
+      Assert.AreEqual(3, list[2]);
+    }
+
+    [Test]
+    public void DeserializeReadOnlyCollection()
+    {
+      IReadOnlyCollection<int> list = JsonConvert.DeserializeObject<IReadOnlyCollection<int>>("[1,2,3]");
+
+      Assert.AreEqual(3, list.Count);
+
+      Assert.AreEqual(1, list.ElementAt(0));
+      Assert.AreEqual(2, list.ElementAt(1));
+      Assert.AreEqual(3, list.ElementAt(2));
+    }
+
+    [Test]
+    public void DeserializeReadOnlyDictionary()
+    {
+      IReadOnlyDictionary<string, int> dic = JsonConvert.DeserializeObject<IReadOnlyDictionary<string, int>>("{'one':1,'two':2}");
+
+      Assert.AreEqual(2, dic.Count);
+
+      Assert.AreEqual(1, dic["one"]);
+      Assert.AreEqual(2, dic["two"]);
+
+      CustomAssert.IsInstanceOfType(typeof(ReadOnlyDictionary<string, int>), dic);
+    }
+
+    public class CustomReadOnlyDictionary<TKey, TValue> : IReadOnlyDictionary<TKey, TValue>
+    {
+      private readonly IDictionary<TKey, TValue> _dictionary;
+
+      public CustomReadOnlyDictionary(IDictionary<TKey, TValue> dictionary)
+      {
+        _dictionary = dictionary;
+      }
+ 
+      public bool ContainsKey(TKey key)
+      {
+        return _dictionary.ContainsKey(key);
+      }
+
+      public IEnumerable<TKey> Keys
+      {
+        get { return _dictionary.Keys; }
+      }
+
+      public bool TryGetValue(TKey key, out TValue value)
+      {
+        return _dictionary.TryGetValue(key, out value);
+      }
+
+      public IEnumerable<TValue> Values
+      {
+        get { return _dictionary.Values; }
+      }
+
+      public TValue this[TKey key]
+      {
+        get { return _dictionary[key]; }
+      }
+
+      public int Count
+      {
+        get { return _dictionary.Count; }
+      }
+
+      public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
+      {
+        return _dictionary.GetEnumerator();
+      }
+
+      IEnumerator IEnumerable.GetEnumerator()
+      {
+        return _dictionary.GetEnumerator();
+      }
+    }
+
+    [Test]
+    public void SerializeCustomReadOnlyDictionary()
+    {
+      IDictionary<string, int> d = new Dictionary<string, int>
+                                     {
+                                       {"one", 1},
+                                       {"two", 2}
+                                     };
+
+      CustomReadOnlyDictionary<string, int> dic = new CustomReadOnlyDictionary<string, int>(d);
+
+      string json = JsonConvert.SerializeObject(dic, Formatting.Indented);
+      Assert.AreEqual(@"{
+  ""one"": 1,
+  ""two"": 2
+}", json);
+    }
+
+    public class CustomReadOnlyCollection<T> : IReadOnlyCollection<T>
+    {
+      private readonly IList<T> _values;
+
+      public CustomReadOnlyCollection (IList<T> values)
+      {
+        _values = values;
+      }
+
+      public int Count
+      {
+        get { return _values.Count; }
+      }
+
+      public IEnumerator<T> GetEnumerator()
+      {
+        return _values.GetEnumerator();
+      }
+
+      IEnumerator IEnumerable.GetEnumerator()
+      {
+        return _values.GetEnumerator();
+      }
+    }
+
+    [Test]
+    public void SerializeCustomReadOnlyCollection()
+    {
+      IList<int> l = new List<int>
+                       {
+                         1,
+                         2,
+                         3
+                       };
+
+      CustomReadOnlyCollection<int> list = new CustomReadOnlyCollection<int>(l);
+
+      string json = JsonConvert.SerializeObject(list, Formatting.Indented);
+      Assert.AreEqual(@"[
+  1,
+  2,
+  3
+]", json);
+    }
+#endif
+  }
+
+  public enum Antworten
+  {
+    First,
+    Second
+  }
+
+  public class SelectListItem
+  {
+    public string Text { get; set; }
+    public string Value { get; set; }
+    public bool Selected { get; set; }
   }
 
 #if !(SILVERLIGHT || NETFX_CORE || PORTABLE)
+  [Serializable]
+  public class AnswerFilterModel
+  {
+    [NonSerialized]
+    private readonly IList answerValues;
+
+    /// <summary>
+    /// Initializes a new instance of the  class.
+    /// </summary>
+    public AnswerFilterModel()
+    {
+      this.answerValues = (from answer in Enum.GetNames(typeof(Antworten))
+                           select new SelectListItem { Text = answer, Value = answer, Selected = false })
+                           .ToList();
+    }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether active.
+    /// </summary>
+    public bool Active { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether ja.
+    /// nach bisherigen Antworten.
+    /// </summary>
+    public bool Ja { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether handlungsbedarf.
+    /// </summary>
+    public bool Handlungsbedarf { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether beratungsbedarf.
+    /// </summary>
+    public bool Beratungsbedarf { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether unzutreffend.
+    /// </summary>
+    public bool Unzutreffend { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether unbeantwortet.
+    /// </summary>
+    public bool Unbeantwortet { get; set; }
+
+    /// <summary>
+    /// Gets the answer values.
+    /// </summary>
+    public IEnumerable AnswerValues
+    {
+      get { return this.answerValues; }
+    }
+  }
+
   [Serializable]
   public class PersonSerializable
   {
@@ -7557,6 +8321,60 @@ Parameter name: value",
     public override bool CanConvert(Type objectType)
     {
       return objectType == typeof (int);
+    }
+  }
+
+  public class ShouldSerializeTestClass
+  {
+    internal bool _shouldSerializeName;
+
+    public string Name { get; set; }
+    public int Age { get; set; }
+
+    public void ShouldSerializeAge()
+    {
+      // dummy. should never be used because it doesn't return bool
+    }
+
+    public bool ShouldSerializeName()
+    {
+      return _shouldSerializeName;
+    }
+  }
+
+  public class SpecifiedTestClass
+  {
+    private bool _nameSpecified;
+
+    public string Name { get; set; }
+    public int Age { get; set; }
+    public int Weight { get; set; }
+    public int Height { get; set; }
+    public int FavoriteNumber { get; set; }
+
+    // dummy. should never be used because it isn't of type bool
+    [JsonIgnore]
+    public long AgeSpecified { get; set; }
+
+    [JsonIgnore]
+    public bool NameSpecified
+    {
+      get { return _nameSpecified; }
+      set { _nameSpecified = value; }
+    }
+
+    [JsonIgnore]
+    public bool WeightSpecified;
+
+    [JsonIgnore]
+    [System.Xml.Serialization.XmlIgnoreAttribute]
+    public bool HeightSpecified;
+
+    [JsonIgnore]
+    public bool FavoriteNumberSpecified
+    {
+      // get only example
+      get { return FavoriteNumber != 0; }
     }
   }
 }
